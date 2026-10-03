@@ -1,0 +1,45 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #d35400; /* terracotta/orange */
+  --color-primary-hover: #e67e22;
+  --color-secondary: #27ae60; /* natural green */
+  --color-secondary-hover: #2ecc71;
+  --color-background: #fbfbf9; /* warm off-white */
+  --color-text: #2d3436; /* charcoal */
+  --color-text-light: #636e72;
+  --color-card: #ffffff;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-text);
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Base styles */
+@layer base {
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-bold text-text;
+  }
+}
+
+/* Utilities */
+@layer utilities {
+  .btn-primary {
+    @apply bg-primary text-white px-4 py-2 rounded-lg font-medium transition-colors hover:bg-primary-hover shadow-sm;
+  }
+  .btn-secondary {
+    @apply bg-secondary text-white px-4 py-2 rounded-lg font-medium transition-colors hover:bg-secondary-hover shadow-sm;
+  }
+  .btn-outline {
+    @apply border border-primary text-primary px-4 py-2 rounded-lg font-medium transition-colors hover:bg-primary hover:text-white shadow-sm;
+  }
+  .card {
+    @apply bg-card rounded-2xl shadow-sm border border-gray-100 overflow-hidden;
+  }
+  .input-field {
+    @apply w-full px-4 py-2 rounded-lg border border-gray-200 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-shadow bg-white;
+  }
+}

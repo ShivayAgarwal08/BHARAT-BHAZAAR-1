@@ -1,0 +1,167 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  ARTISAN
+  INTERN
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String?  @unique
+  phone     String   @unique
+  password  String
+  role      Role     @default(ARTISAN)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  artisan Artisan?
+  intern  Intern?
+}
+
+model Artisan {
+  id              String @id @default(uuid())
+  userId          String @unique
+  user            User   @relation(fields: [userId], references: [id])
+  location        String
+  state           String
+  primaryLanguage String
+  businessType    String
+
+  products        Product[]
+  managerRequests ManagerRequest[]
+  projects        Project[]
+}
+
+model Intern {
+  id         String   @id @default(uuid())
+  userId     String   @unique
+  user       User     @relation(fields: [userId], references: [id])
+  college    String
+  course     String
+  skills     String[]
+  experience String?
+  portfolio  String?
+  location   String
+  profileImg String?
+
+  applications Application[]
+  projects     Project[]
+  ratings      Rating[]
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  artisanId   String
+  artisan     Artisan  @relation(fields: [artisanId], references: [id])
+  title       String
+  description String
+  price       Float
+  quantity    Int
+  category    String
+  tags        String[]
+  materials   String[]
+  imageUrl    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+enum RequestStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model ManagerRequest {
+  id          String        @id @default(uuid())
+  artisanId   String
+  artisan     Artisan       @relation(fields: [artisanId], references: [id])
+  title       String
+  description String
+  category    String
+  budget      String?
+  deadline    DateTime?
+  status      RequestStatus @default(OPEN)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  applications Application[]
+  project      Project?
+}
+
+enum ApplicationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+model Application {
+  id        String            @id @default(uuid())
+  requestId String
+  request   ManagerRequest    @relation(fields: [requestId], references: [id])
+  internId  String
+  intern    Intern            @relation(fields: [internId], references: [id])
+  message   String
+  status    ApplicationStatus @default(PENDING)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  project Project?
+}
+
+enum ProjectStatus {
+  OPEN
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model Project {
+  id             String         @id @default(uuid())
+  requestId      String         @unique
+  request        ManagerRequest @relation(fields: [requestId], references: [id])
+  applicationId  String         @unique
+  application    Application    @relation(fields: [applicationId], references: [id])
+  artisanId      String
+  artisan        Artisan        @relation(fields: [artisanId], references: [id])
+  internId       String
+  intern         Intern         @relation(fields: [internId], references: [id])
+  status         ProjectStatus  @default(IN_PROGRESS)
+  startDate      DateTime       @default(now())
+  completionDate DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  messages Message[]
+  rating   Rating?
+}
+
+model Message {
+  id        String   @id @default(uuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id])
+  senderId  String // Will match User ID
+  content   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Rating {
+  id        String   @id @default(uuid())
+  projectId String   @unique
+  project   Project  @relation(fields: [projectId], references: [id])
+  internId  String
+  intern    Intern   @relation(fields: [internId], references: [id])
+  score     Int
+  review    String?
+  createdAt DateTime @default(now())
+}
