@@ -46,7 +46,7 @@ Rules:
 Do NOT wrap the output in markdown code blocks like \`\`\`json. Return the raw JSON string.`;
 
       const response = await ai.models.generateContent({
-        model: process.env.AI_MODEL || 'gemini-2.5-flash',
+        model: process.env.AI_MODEL || 'gemini-3.8-flash',
         contents: prompt,
       });
 
