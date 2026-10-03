@@ -25,7 +25,7 @@ export const AuthProvider = ({ children }) => {
 
   const fetchUser = async () => {
     try {
-      const res = await axios.get('http://localhost:5001/api/auth/me');
+      const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/auth/me`);
       setUser(res.data);
     } catch (error) {
       console.error('Failed to fetch user', error);
@@ -36,7 +36,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const login = async (phone, password) => {
-    const res = await axios.post('http://localhost:5001/api/auth/login', { phone, password });
+    const res = await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/auth/login`, { phone, password });
     setToken(res.data.token);
     setUser(res.data.user);
   };

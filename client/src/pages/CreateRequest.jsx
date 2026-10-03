@@ -33,7 +33,7 @@ export default function CreateRequest() {
     setError('');
 
     try {
-      await axios.post('http://localhost:5001/api/requests', formData);
+      await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/requests`, formData);
       navigate('/dashboard');
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to create request');

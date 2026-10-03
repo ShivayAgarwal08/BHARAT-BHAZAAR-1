@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 
 export default function ProductCard({ product }) {
   const imageUrl = product.imageUrl 
-    ? `http://localhost:5001${product.imageUrl}` 
+    ? `${import.meta.env.VITE_API_URL || 'http://localhost:5001'}${product.imageUrl}` 
     : 'https://via.placeholder.com/400?text=No+Image';
 
   return (

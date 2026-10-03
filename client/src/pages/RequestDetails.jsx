@@ -26,16 +26,16 @@ export default function RequestDetails() {
 
     const fetchData = async () => {
       try {
-        const reqRes = await axios.get(`http://localhost:5001/api/requests/${id}`);
+        const reqRes = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/requests/${id}`);
         setRequest(reqRes.data);
 
         if (user.role === 'ARTISAN') {
           // Fetch all applicants if Artisan
-          const appRes = await axios.get(`http://localhost:5001/api/requests/${id}/applications`);
+          const appRes = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/requests/${id}/applications`);
           setApplications(appRes.data);
         } else if (user.role === 'INTERN') {
           // Check if intern already applied
-          const myAppsRes = await axios.get(`http://localhost:5001/api/applications/my`);
+          const myAppsRes = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/applications/my`);
           const existingApp = myAppsRes.data.find(app => app.requestId === id);
           if (existingApp) {
             setMyApplication(existingApp);
@@ -57,7 +57,7 @@ export default function RequestDetails() {
     setIsApplying(true);
     
     try {
-      const res = await axios.post('http://localhost:5001/api/applications', {
+      const res = await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/applications`, {
         requestId: id,
         message: applyMessage
       });
@@ -74,7 +74,7 @@ export default function RequestDetails() {
     if (!window.confirm('Are you sure you want to select this Growth Manager? All other applications will be rejected and the project will start.')) return;
     
     try {
-      await axios.put(`http://localhost:5001/api/applications/${applicationId}/accept`);
+      await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/applications/${applicationId}/accept`);
       alert('Growth Manager selected! Project is now in progress.');
       // Refresh data
       window.location.reload();

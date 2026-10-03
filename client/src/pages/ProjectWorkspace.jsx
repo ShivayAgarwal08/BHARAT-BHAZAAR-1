@@ -32,8 +32,8 @@ export default function ProjectWorkspace() {
     const fetchProjectAndMessages = async () => {
       try {
         const [projRes, msgRes] = await Promise.all([
-          axios.get(`http://localhost:5001/api/projects/${id}`),
-          axios.get(`http://localhost:5001/api/projects/${id}/messages`)
+          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/projects/${id}`),
+          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/projects/${id}/messages`)
         ]);
         setProject(projRes.data);
         setMessages(msgRes.data);
@@ -48,7 +48,7 @@ export default function ProjectWorkspace() {
     fetchProjectAndMessages();
 
     // Socket.IO setup
-    socketRef.current = io('http://localhost:5001');
+    socketRef.current = io(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}`);
     
     socketRef.current.emit('joinProject', id);
 
@@ -71,7 +71,7 @@ export default function ProjectWorkspace() {
     if (!newMessage.trim()) return;
 
     try {
-      const res = await axios.post(`http://localhost:5001/api/projects/${id}/messages`, {
+      const res = await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/projects/${id}/messages`, {
         content: newMessage,
       });
       
@@ -87,7 +87,7 @@ export default function ProjectWorkspace() {
   const handleCompleteProject = async () => {
     if (!window.confirm('Are you sure you want to mark this project as COMPLETED?')) return;
     try {
-      await axios.put(`http://localhost:5001/api/projects/${id}/complete`);
+      await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/projects/${id}/complete`);
       setProject({ ...project, status: 'COMPLETED' });
     } catch (err) {
       alert(err.response?.data?.error || 'Failed to complete project');
@@ -98,7 +98,7 @@ export default function ProjectWorkspace() {
     e.preventDefault();
     setIsSubmittingRating(true);
     try {
-      await axios.post(`http://localhost:5001/api/projects/${id}/rating`, {
+      await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/projects/${id}/rating`, {
         score: ratingScore,
         review: ratingReview,
       });

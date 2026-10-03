@@ -11,7 +11,7 @@ export default function ProductDetails() {
   useEffect(() => {
     const fetchProduct = async () => {
       try {
-        const res = await axios.get(`http://localhost:5001/api/products/${id}`);
+        const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/products/${id}`);
         setProduct(res.data);
       } catch (err) {
         console.error('Failed to fetch product', err);
@@ -26,7 +26,7 @@ export default function ProductDetails() {
   if (!product) return <div className="text-center py-12">Product not found</div>;
 
   const imageUrl = product.imageUrl 
-    ? `http://localhost:5001${product.imageUrl}` 
+    ? `${import.meta.env.VITE_API_URL || 'http://localhost:5001'}${product.imageUrl}` 
     : 'https://via.placeholder.com/600?text=No+Image';
 
   return (

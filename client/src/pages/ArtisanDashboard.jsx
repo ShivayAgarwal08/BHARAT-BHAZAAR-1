@@ -20,9 +20,9 @@ export default function ArtisanDashboard() {
     const fetchData = async () => {
       try {
         const [prodRes, reqRes, projRes] = await Promise.all([
-          axios.get('http://localhost:5001/api/products/my/products'),
-          axios.get('http://localhost:5001/api/requests/my/requests'),
-          axios.get('http://localhost:5001/api/projects')
+          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/products/my/products`),
+          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/requests/my/requests`),
+          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/projects`)
         ]);
         setProducts(prodRes.data);
         setRequests(reqRes.data);
@@ -39,7 +39,7 @@ export default function ArtisanDashboard() {
   const handleDeleteProduct = async (id) => {
     if (!window.confirm('Are you sure you want to delete this product?')) return;
     try {
-      await axios.delete(`http://localhost:5001/api/products/${id}`);
+      await axios.delete(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/products/${id}`);
       setProducts(products.filter(p => p.id !== id));
     } catch (err) {
       alert('Failed to delete product');
@@ -49,7 +49,7 @@ export default function ArtisanDashboard() {
   const handleCancelRequest = async (id) => {
     if (!window.confirm('Are you sure you want to cancel this request?')) return;
     try {
-      await axios.delete(`http://localhost:5001/api/requests/${id}`);
+      await axios.delete(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/requests/${id}`);
       setRequests(requests.map(r => r.id === id ? { ...r, status: 'CANCELLED' } : r));
     } catch (err) {
       alert('Failed to cancel request');
@@ -181,7 +181,7 @@ export default function ArtisanDashboard() {
                       <div className="flex items-center gap-4">
                         <div className="w-12 h-12 rounded bg-gray-200 overflow-hidden shrink-0">
                           {product.imageUrl ? (
-                            <img src={`http://localhost:5001${product.imageUrl}`} alt="" className="w-full h-full object-cover" />
+                            <img src={`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}${product.imageUrl}`} alt="" className="w-full h-full object-cover" />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-xs text-gray-400">No Img</div>
                           )}

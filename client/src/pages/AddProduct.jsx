@@ -65,7 +65,7 @@ export default function AddProduct() {
     if (isEditing) {
       const fetchProduct = async () => {
         try {
-          const res = await axios.get(`http://localhost:5001/api/products/${id}`);
+          const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/products/${id}`);
           setFormData({
             title: res.data.title,
             description: res.data.description,
@@ -102,7 +102,7 @@ export default function AddProduct() {
     setAiLoading(true);
     setAiError('');
     try {
-      const res = await axios.post('http://localhost:5001/api/products/generate', { text: voiceText });
+      const res = await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/products/generate`, { text: voiceText });
       setFormData({
         title: res.data.title,
         description: res.data.description,
@@ -146,11 +146,11 @@ export default function AddProduct() {
 
     try {
       if (isEditing) {
-        await axios.put(`http://localhost:5001/api/products/${id}`, data, {
+        await axios.put(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/products/${id}`, data, {
           headers: { 'Content-Type': 'multipart/form-data' }
         });
       } else {
-        await axios.post('http://localhost:5001/api/products', data, {
+        await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/products`, data, {
           headers: { 'Content-Type': 'multipart/form-data' }
         });
       }

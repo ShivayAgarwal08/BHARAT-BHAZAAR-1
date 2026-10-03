@@ -22,9 +22,9 @@ export default function InternDashboard() {
     const fetchData = async () => {
       try {
         const [reqRes, appRes, projRes] = await Promise.all([
-          axios.get('http://localhost:5001/api/requests'),
-          axios.get('http://localhost:5001/api/applications/my'),
-          axios.get('http://localhost:5001/api/projects')
+          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/requests`),
+          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/applications/my`),
+          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/projects`)
         ]);
         setOpenRequests(reqRes.data);
         setMyApplications(appRes.data);
@@ -32,7 +32,7 @@ export default function InternDashboard() {
 
         // Fetch reputation
         if (user.intern?.id) {
-          const repRes = await axios.get(`http://localhost:5001/api/projects/intern/${user.intern.id}/reputation`);
+          const repRes = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/projects/intern/${user.intern.id}/reputation`);
           setReputation(repRes.data);
         }
       } catch (err) {
