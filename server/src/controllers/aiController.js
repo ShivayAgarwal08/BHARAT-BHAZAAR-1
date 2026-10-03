@@ -1,8 +1,8 @@
 const { GoogleGenAI } = require('@google/genai');
 
 let ai;
-if (process.env.AI_API_KEY) {
-  ai = new GoogleGenAI({ apiKey: process.env.AI_API_KEY });
+if (process.env.GEMINI_API_KEY) {
+  ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 }
 
 const generateProduct = async (req, res) => {
