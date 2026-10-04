@@ -1,10 +1,11 @@
 import { Routes, Route, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import { useCart } from './context/CartContext';
-import { ShoppingBag, Package, UserCheck, LogOut, Sparkles } from 'lucide-react';
+import { ShoppingBag, Package, UserCheck, LogOut, UserPlus, LogIn } from 'lucide-react';
 
 import Home from './pages/Home';
 import Login from './pages/Login';
+import Register from './pages/Register';
 import Marketplace from './pages/Marketplace';
 import Cart from './pages/Cart';
 import Checkout from './pages/Checkout';
@@ -63,7 +64,7 @@ function App() {
             </Link>
 
             {/* Navigation Links */}
-            <nav className="flex items-center gap-2 sm:gap-6">
+            <nav className="flex items-center gap-2 sm:gap-5">
               <Link
                 to="/marketplace"
                 className="text-xs sm:text-sm font-semibold text-gray-700 hover:text-amber-800 transition-colors px-3 py-2 rounded-xl hover:bg-amber-50/50"
@@ -96,7 +97,7 @@ function App() {
                       className="text-xs sm:text-sm font-semibold text-gray-700 hover:text-amber-800 transition-colors px-3 py-2 rounded-xl hover:bg-amber-50/50 flex items-center gap-1"
                     >
                       <Package className="w-3.5 h-3.5 text-amber-700" />
-                      Orders
+                      My Orders
                     </Link>
                   )}
 
@@ -121,14 +122,14 @@ function App() {
                     <button
                       onClick={handleLogout}
                       className="p-2 text-gray-400 hover:text-red-600 transition-colors rounded-xl hover:bg-red-50"
-                      title="Logout"
+                      title="Sign Out"
                     >
                       <LogOut className="w-4 h-4" />
                     </button>
                   </div>
                 </>
               ) : (
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 sm:gap-3">
                   <Link
                     to="/cart"
                     className="relative p-2 text-gray-700 hover:text-amber-800 transition-colors rounded-xl hover:bg-amber-50/50"
@@ -142,9 +143,17 @@ function App() {
                   </Link>
                   <Link
                     to="/login"
-                    className="px-4 py-2 bg-amber-800 text-white text-xs font-bold rounded-xl hover:bg-amber-900 transition-all shadow-sm"
+                    className="text-xs font-bold text-gray-700 hover:text-amber-800 px-3 py-2 rounded-xl hover:bg-amber-50/50 flex items-center gap-1"
                   >
-                    Login / Register
+                    <LogIn className="w-3.5 h-3.5 text-amber-700" />
+                    Sign In
+                  </Link>
+                  <Link
+                    to="/register"
+                    className="px-4 py-2 bg-amber-800 text-white text-xs font-bold rounded-xl hover:bg-amber-900 transition-all shadow-sm flex items-center gap-1"
+                  >
+                    <UserPlus className="w-3.5 h-3.5" />
+                    Create Account
                   </Link>
                 </div>
               )}
@@ -165,6 +174,7 @@ function App() {
           <Route path="/growth-managers" element={<GrowthManagers />} />
           <Route path="/contracts/:id" element={<ContractDetails />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
           <Route path="/product/:id" element={<ProductDetails />} />
           <Route
             path="/dashboard"

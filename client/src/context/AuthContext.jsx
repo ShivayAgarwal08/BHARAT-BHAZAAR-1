@@ -39,6 +39,14 @@ export const AuthProvider = ({ children }) => {
     const res = await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/auth/login`, { phone, password });
     setToken(res.data.token);
     setUser(res.data.user);
+    return res.data.user;
+  };
+
+  const register = async (userData) => {
+    const res = await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/auth/register`, userData);
+    setToken(res.data.token);
+    setUser(res.data.user);
+    return res.data.user;
   };
 
   const logout = () => {
@@ -46,7 +54,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, token, login, register, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );

@@ -19,8 +19,7 @@ const getAllInterns = async (req, res) => {
             contracts: { where: { status: 'COMPLETED' } },
           },
         },
-      },
-      orderBy: { createdAt: 'desc' },
+      }
     });
 
     const formattedInterns = interns.map((intern) => {

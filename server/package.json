@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "nodemon src/index.js",
+    "dev": "node src/index.js",
     "start": "node src/index.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "prisma-v": "prisma -v",
@@ -29,6 +29,7 @@
   },
   "devDependencies": {
     "@prisma/client": "^5.22.0",
+    "nodemon": "^3.1.14",
     "prisma": "^5.22.0"
   }
 }
