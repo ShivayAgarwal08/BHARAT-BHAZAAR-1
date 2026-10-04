@@ -9,6 +9,11 @@ const productRoutes = require('./routes/productRoutes');
 const requestRoutes = require('./routes/requestRoutes');
 const applicationRoutes = require('./routes/applicationRoutes');
 const projectRoutes = require('./routes/projectRoutes');
+const cartRoutes = require('./routes/cartRoutes');
+const orderRoutes = require('./routes/orderRoutes');
+const contractRoutes = require('./routes/contractRoutes');
+const internRoutes = require('./routes/internRoutes');
+const analyticsRoutes = require('./routes/analyticsRoutes');
 const path = require('path');
 
 const app = express();
@@ -32,6 +37,11 @@ app.use('/api/products', productRoutes);
 app.use('/api/requests', requestRoutes);
 app.use('/api/applications', applicationRoutes);
 app.use('/api/projects', projectRoutes);
+app.use('/api/cart', cartRoutes);
+app.use('/api/orders', orderRoutes);
+app.use('/api/contracts', contractRoutes);
+app.use('/api/interns', internRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 // Base route
 app.get('/', (req, res) => {

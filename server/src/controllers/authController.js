@@ -43,6 +43,10 @@ const register = async (req, res) => {
           experience: roleData.experience,
           portfolio: roleData.portfolio,
           location: roleData.location || '',
+          tier: roleData.tier || 'STARTER',
+          hourlyRate: roleData.hourlyRate ? parseFloat(roleData.hourlyRate) : null,
+          projectRate: roleData.projectRate ? parseFloat(roleData.projectRate) : null,
+          bio: roleData.bio || '',
         },
       });
     }
