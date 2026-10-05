@@ -202,7 +202,7 @@ export default function Marketplace() {
               <div className="relative w-full h-56 bg-gray-50 overflow-hidden">
                 {product.imageUrl ? (
                   <img
-                    src={`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/${product.imageUrl}`}
+                    src={product.imageUrl.startsWith('http') ? product.imageUrl : `${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/${product.imageUrl.replace(/\\/g, '/').replace(/^\//, '')}`}
                     alt={product.title}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />

@@ -175,7 +175,7 @@ export default function Checkout() {
                 <div className="w-12 h-12 bg-gray-50 rounded-lg overflow-hidden flex-shrink-0 border border-gray-100">
                   {item.product?.imageUrl ? (
                     <img
-                      src={`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/${item.product.imageUrl}`}
+                      src={item.product.imageUrl.startsWith('http') ? item.product.imageUrl : `${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/${item.product.imageUrl.replace(/\\/g, '/').replace(/^\//, '')}`}
                       alt={item.product.title}
                       className="w-full h-full object-cover"
                     />

@@ -45,16 +45,43 @@ Rules:
 }
 Do NOT wrap the output in markdown code blocks like \`\`\`json. Return the raw JSON string.`;
 
-      const response = await ai.models.generateContent({
-        model: process.env.AI_MODEL || 'gemini-3.8-flash',
-        contents: prompt,
-      });
+      const MAX_RETRIES = 3;
+      let attempt = 0;
+      let lastError = null;
 
-      let responseText = response.text;
-      // Strip markdown code block formatting if accidentally included
-      responseText = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
+      while (attempt < MAX_RETRIES) {
+        try {
+          const response = await ai.models.generateContent({
+            model: process.env.GEMINI_MODEL || process.env.AI_MODEL || 'gemini-3.8-flash',
+            contents: prompt,
+          });
 
-      structuredProduct = JSON.parse(responseText);
+          let responseText = response.text;
+          
+          // Robust JSON extraction
+          const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            responseText = jsonMatch[0];
+          }
+
+          structuredProduct = JSON.parse(responseText);
+          break; // Success
+        } catch (error) {
+          lastError = error;
+          const status = error.status || (error.response && error.response.status);
+          if (status === 429 || status === 503) {
+            attempt++;
+            if (attempt < MAX_RETRIES) {
+              const delay = Math.pow(2, attempt) * 1000 + Math.random() * 500;
+              await new Promise((resolve) => setTimeout(resolve, delay));
+              continue;
+            } else {
+              return res.status(503).json({ error: 'AI service is temporarily busy. Please try again in a moment.' });
+            }
+          }
+          throw error; // Other errors
+        }
+      }
     } else {
       // Mock fallback if API key is not provided (for seamless testing without crashing)
       structuredProduct = {

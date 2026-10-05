@@ -308,7 +308,7 @@ export default function ArtisanDashboard() {
                   <div className="w-full h-36 bg-gray-50 rounded-xl overflow-hidden border border-gray-100">
                     {product.imageUrl ? (
                       <img
-                        src={`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/${product.imageUrl}`}
+                        src={product.imageUrl.startsWith('http') ? product.imageUrl : `${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/${product.imageUrl.replace(/\\/g, '/').replace(/^\//, '')}`}
                         alt={product.title}
                         className="w-full h-full object-cover"
                       />

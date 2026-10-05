@@ -60,7 +60,9 @@ export default function ProductDetails() {
   }
 
   const imageUrl = product.imageUrl
-    ? `${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/${product.imageUrl}`
+    ? product.imageUrl.startsWith('http') 
+      ? product.imageUrl 
+      : `${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/${product.imageUrl.replace(/\\/g, '/').replace(/^\//, '')}`
     : null;
 
   const handleAddToCart = async () => {

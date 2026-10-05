@@ -33,11 +33,11 @@ export default function Home() {
               </Link>
               {!user && (
                 <Link
-                  to="/login"
+                  to="/register"
                   className="px-8 py-4 bg-white/10 hover:bg-white/20 text-white font-bold rounded-2xl transition-all border border-white/20 text-center flex items-center justify-center gap-2"
                 >
                   <Users className="w-5 h-5 text-amber-400" />
-                  Become a Growth Manager
+                  Create Account
                 </Link>
               )}
             </div>
@@ -144,10 +144,10 @@ export default function Home() {
               </p>
             </div>
             <Link
-              to={user?.role === 'INTERN' ? '/dashboard' : '/login'}
+              to={user?.role === 'INTERN' ? '/dashboard' : '/register'}
               className="text-amber-800 font-bold text-xs flex items-center gap-1 hover:underline pt-4 border-t border-gray-50"
             >
-              Become a Growth Manager &rarr;
+              Create Account &rarr;
             </Link>
           </div>
         </div>

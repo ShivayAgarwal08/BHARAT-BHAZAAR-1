@@ -131,17 +131,27 @@ export default function ContractDetails() {
             </p>
           </div>
 
-          <span
-            className={`px-4 py-1.5 rounded-full text-xs font-extrabold uppercase tracking-wider border ${
-              contract.status === 'ACTIVE'
-                ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
-                : contract.status === 'COMPLETED'
-                ? 'bg-blue-100 text-blue-800 border-blue-200'
-                : 'bg-amber-100 text-amber-800 border-amber-200'
-            }`}
-          >
-            {contract.status}
-          </span>
+          <div className="flex items-center gap-2">
+            <span
+              className={`px-4 py-1.5 rounded-full text-xs font-extrabold uppercase tracking-wider border ${
+                contract.status === 'ACTIVE'
+                  ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                  : contract.status === 'COMPLETED'
+                  ? 'bg-blue-100 text-blue-800 border-blue-200'
+                  : 'bg-amber-100 text-amber-800 border-amber-200'
+              }`}
+            >
+              {contract.status}
+            </span>
+            {(contract.status === 'ACTIVE' || contract.status === 'COMPLETED') && contract.projectId && (
+              <Link
+                to={`/projects/${contract.projectId}`}
+                className="px-4 py-1.5 bg-indigo-600 text-white font-bold rounded-full text-xs hover:bg-indigo-700 transition-colors shadow-sm"
+              >
+                Open Workspace &rarr;
+              </Link>
+            )}
+          </div>
         </div>
 
         {/* Agreement Status Banner */}

@@ -52,6 +52,7 @@ const getProjectById = async (req, res) => {
         artisan: { include: { user: { select: { name: true, id: true } } } },
         intern: { include: { user: { select: { name: true, id: true } } } },
         rating: true,
+        contract: { select: { id: true } },
       },
     });
 

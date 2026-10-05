@@ -171,10 +171,65 @@ const agreeContract = async (req, res) => {
       dataToUpdate.status = 'ACTIVE';
     }
 
-    const updatedContract = await prisma.contract.update({
-      where: { id },
-      data: dataToUpdate,
-      include: { tasks: true },
+    const updatedContract = await prisma.$transaction(async (tx) => {
+      let projectId = contract.projectId;
+
+      if (willBeBothAgreed && !projectId) {
+        let reqId = contract.requestId;
+        let appId = null;
+
+        // If no request exists, create a dummy one for the direct hire
+        if (!reqId) {
+          const newReq = await tx.managerRequest.create({
+            data: {
+              artisanId: contract.artisanId,
+              title: `Direct Hire: ${contract.title}`,
+              description: 'Automatically generated request for direct hire.',
+              category: 'Direct Hire',
+              status: 'IN_PROGRESS',
+            },
+          });
+          reqId = newReq.id;
+
+          // Also create an application to satisfy Project relations
+          const newApp = await tx.application.create({
+            data: {
+              requestId: reqId,
+              internId: contract.internId,
+              message: 'Directly hired via directory.',
+              status: 'ACCEPTED',
+            },
+          });
+          appId = newApp.id;
+        } else {
+          // If request exists, find the accepted application
+          const existingApp = await tx.application.findFirst({
+            where: { requestId: reqId, internId: contract.internId, status: 'ACCEPTED' },
+          });
+          if (existingApp) appId = existingApp.id;
+        }
+
+        if (reqId && appId) {
+          const project = await tx.project.create({
+            data: {
+              requestId: reqId,
+              applicationId: appId,
+              artisanId: contract.artisanId,
+              internId: contract.internId,
+              status: 'IN_PROGRESS',
+            },
+          });
+          projectId = project.id;
+          dataToUpdate.projectId = project.id;
+          dataToUpdate.requestId = reqId; // Update contract's requestId too
+        }
+      }
+      
+      return tx.contract.update({
+        where: { id },
+        data: dataToUpdate,
+        include: { tasks: true },
+      });
     });
 
     res.json(updatedContract);
