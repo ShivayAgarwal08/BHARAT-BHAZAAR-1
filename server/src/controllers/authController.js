@@ -11,13 +11,21 @@ const register = async (req, res) => {
       return res.status(400).json({ error: 'User with this phone number already exists' });
     }
 
+    const cleanEmail = email?.trim() || null;
+    if (cleanEmail) {
+      const existingEmail = await prisma.user.findUnique({ where: { email: cleanEmail } });
+      if (existingEmail) {
+        return res.status(400).json({ error: 'An account with this email already exists.' });
+      }
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await prisma.user.create({
       data: {
         name,
         phone,
-        email,
+        email: cleanEmail,
         password: hashedPassword,
         role: role || 'ARTISAN', // Default to ARTISAN if not provided
       },
@@ -60,6 +68,9 @@ const register = async (req, res) => {
     res.status(201).json({ token, user: { id: user.id, name: user.name, role: user.role } });
   } catch (error) {
     console.error('Registration error:', error);
+    if (error.code === 'P2002') {
+      return res.status(400).json({ error: 'An account with these details already exists.' });
+    }
     res.status(500).json({ error: 'Internal server error' });
   }
 };
