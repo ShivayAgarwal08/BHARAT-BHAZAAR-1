@@ -43,7 +43,10 @@ const getMyRequests = async (req, res) => {
     if (!artisan) return res.status(404).json({ error: 'Artisan profile not found' });
 
     const requests = await prisma.managerRequest.findMany({
-      where: { artisanId: artisan.id },
+      where: { 
+        artisanId: artisan.id,
+        category: { not: 'Direct Hire' } 
+      },
       include: {
         _count: {
           select: { applications: true },

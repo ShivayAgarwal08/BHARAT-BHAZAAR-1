@@ -55,7 +55,10 @@ const getMyApplications = async (req, res) => {
     if (!intern) return res.status(404).json({ error: 'Intern profile not found' });
 
     const applications = await prisma.application.findMany({
-      where: { internId: intern.id },
+      where: { 
+        internId: intern.id,
+        request: { category: { not: 'Direct Hire' } }
+      },
       include: {
         request: {
           select: {
