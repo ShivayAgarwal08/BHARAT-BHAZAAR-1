@@ -34,7 +34,11 @@ export default function InternDashboard() {
   const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => {
-    if (user && user.role !== 'INTERN') {
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+    if (user.role !== 'INTERN') {
       navigate('/');
       return;
     }

@@ -79,6 +79,10 @@ const login = async (req, res) => {
   const { phone, password } = req.body;
 
   try {
+    if (!phone || !password) {
+      return res.status(400).json({ error: 'Phone and password are required' });
+    }
+
     const user = await prisma.user.findUnique({ where: { phone } });
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials' });

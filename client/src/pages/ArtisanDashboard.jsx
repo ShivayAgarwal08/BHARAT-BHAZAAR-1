@@ -28,7 +28,11 @@ export default function ArtisanDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user && user.role !== 'ARTISAN') {
+    if (!user) {
+      navigate('/login');
+      return;
+    }
+    if (user.role !== 'ARTISAN') {
       navigate('/');
       return;
     }

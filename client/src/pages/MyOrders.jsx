@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { useAuth } from '../context/AuthContext';
 import { Package, Calendar, Clock, ChevronRight, ShoppingBag } from 'lucide-react';
 
 const STATUS_COLORS = {
@@ -13,13 +14,20 @@ const STATUS_COLORS = {
 };
 
 export default function MyOrders() {
+  const { user } = useAuth();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const navigate = useNavigate();
+
   useEffect(() => {
+    if (!user) {
+      navigate('/login');
+      return;
+    }
     fetchOrders();
-  }, []);
+  }, [user, navigate]);
 
   const fetchOrders = async () => {
     try {
