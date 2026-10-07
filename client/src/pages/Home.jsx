@@ -125,7 +125,7 @@ export default function Home() {
               </p>
             </div>
             <Link
-              to={user?.role === 'ARTISAN' ? '/dashboard' : '/login'}
+              to="/how-it-works/artisan"
               className="text-amber-800 font-bold text-xs flex items-center gap-1 hover:underline pt-4 border-t border-gray-50"
             >
               Grow Your Business &rarr;
@@ -144,7 +144,7 @@ export default function Home() {
               </p>
             </div>
             <Link
-              to={user?.role === 'INTERN' ? '/dashboard' : '/register'}
+              to="/how-it-works/growth-manager"
               className="text-amber-800 font-bold text-xs flex items-center gap-1 hover:underline pt-4 border-t border-gray-50"
             >
               Create Account &rarr;

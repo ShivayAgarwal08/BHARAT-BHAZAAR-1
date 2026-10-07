@@ -82,7 +82,7 @@ function App() {
 
             {/* Navigation Links */}
             <nav className="flex items-center gap-2 sm:gap-5">
-              {(!user || user.role === 'CUSTOMER') && (
+              {!user && (
                 <>
                   <Link
                     to="/marketplace"
@@ -95,6 +95,17 @@ function App() {
                     className="text-xs sm:text-sm font-semibold text-gray-700 hover:text-amber-800 transition-colors px-3 py-2 rounded-xl hover:bg-amber-50/50 hidden md:inline"
                   >
                     For Artisans
+                  </Link>
+                </>
+              )}
+
+              {user?.role === 'CUSTOMER' && (
+                <>
+                  <Link
+                    to="/marketplace"
+                    className="text-xs sm:text-sm font-semibold text-gray-700 hover:text-amber-800 transition-colors px-3 py-2 rounded-xl hover:bg-amber-50/50"
+                  >
+                    Shop
                   </Link>
                 </>
               )}

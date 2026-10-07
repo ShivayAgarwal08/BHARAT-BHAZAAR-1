@@ -113,16 +113,19 @@ export default function GrowthManagers() {
 
   const filteredInterns = interns.filter((i) => {
     if (!searchSkill) return true;
-    return i.skills.some((s) => s.toLowerCase().includes(searchSkill.toLowerCase())) ||
-      i.name.toLowerCase().includes(searchSkill.toLowerCase()) ||
-      (i.college && i.college.toLowerCase().includes(searchSkill.toLowerCase()));
+    const term = searchSkill.toLowerCase();
+    const matchesSkill = Array.isArray(i.skills) && i.skills.some((s) => s?.toLowerCase().includes(term));
+    const matchesName = i.name?.toLowerCase().includes(term);
+    const matchesCollege = i.college?.toLowerCase().includes(term);
+    return matchesSkill || matchesName || matchesCollege;
   });
 
   const filteredRequests = openRequests.filter((r) => {
     if (!searchSkill) return true;
-    return r.title.toLowerCase().includes(searchSkill.toLowerCase()) ||
-      r.description.toLowerCase().includes(searchSkill.toLowerCase()) ||
-      (r.category && r.category.toLowerCase().includes(searchSkill.toLowerCase()));
+    const term = searchSkill.toLowerCase();
+    return r.title?.toLowerCase().includes(term) ||
+      r.description?.toLowerCase().includes(term) ||
+      r.category?.toLowerCase().includes(term);
   });
 
   if (user?.role === 'INTERN') {
