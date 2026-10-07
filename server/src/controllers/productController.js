@@ -15,6 +15,17 @@ const createProduct = async (req, res) => {
     const artisan = await prisma.artisan.findUnique({ where: { userId: req.user.id } });
     if (!artisan) return res.status(404).json({ error: 'Artisan profile not found' });
 
+    let imageUrl = null;
+    if (req.file && req.file.processedBuffer) {
+      const imageRecord = await prisma.imageRecord.create({
+        data: {
+          data: req.file.processedBuffer,
+          mimetype: req.file.mimetype || 'image/webp'
+        }
+      });
+      imageUrl = `/api/images/${imageRecord.id}.webp`;
+    }
+
     const product = await prisma.product.create({
       data: {
         title,
@@ -24,7 +35,7 @@ const createProduct = async (req, res) => {
         category,
         tags: tags ? (Array.isArray(tags) ? tags : JSON.parse(tags)) : [],
         materials: materials ? (Array.isArray(materials) ? materials : JSON.parse(materials)) : [],
-        imageUrl: req.file ? req.file.path : null,
+        imageUrl,
         artisanId: artisan.id,
       },
     });
@@ -84,7 +95,16 @@ const updateProduct = async (req, res) => {
     if (category) dataToUpdate.category = category;
     if (tags) dataToUpdate.tags = Array.isArray(tags) ? tags : JSON.parse(tags);
     if (materials) dataToUpdate.materials = Array.isArray(materials) ? materials : JSON.parse(materials);
-    if (req.file) dataToUpdate.imageUrl = req.file.path;
+    
+    if (req.file && req.file.processedBuffer) {
+      const imageRecord = await prisma.imageRecord.create({
+        data: {
+          data: req.file.processedBuffer,
+          mimetype: req.file.mimetype || 'image/webp'
+        }
+      });
+      dataToUpdate.imageUrl = `/api/images/${imageRecord.id}.webp`;
+    }
 
     const updatedProduct = await prisma.product.update({
       where: { id },

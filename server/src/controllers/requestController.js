@@ -64,20 +64,40 @@ const getMyRequests = async (req, res) => {
 
 const getAllOpenRequests = async (req, res) => {
   try {
-    const requests = await prisma.managerRequest.findMany({
-      where: { status: 'OPEN' },
-      include: {
-        artisan: {
-          include: {
-            user: { select: { name: true } },
+    const { status = 'OPEN', page = 1, limit = 10 } = req.query;
+    const skip = (Number(page) - 1) * Number(limit);
+    const take = Number(limit);
+
+    const [requests, total] = await Promise.all([
+      prisma.managerRequest.findMany({
+        where: { status },
+        skip,
+        take,
+        include: {
+          artisan: {
+            include: {
+              user: { select: { name: true } },
+            },
           },
         },
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.managerRequest.count({
+        where: { status },
+      }),
+    ]);
+
+    res.json({
+      data: requests,
+      meta: {
+        total,
+        page: Number(page),
+        limit: Number(limit),
+        totalPages: Math.ceil(total / Number(limit)),
       },
-      orderBy: { createdAt: 'desc' },
     });
-    res.json(requests);
   } catch (error) {
-    console.error('Get all open requests error:', error);
+    console.error('Get all requests error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 };

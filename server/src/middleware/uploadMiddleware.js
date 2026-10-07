@@ -30,16 +30,13 @@ const processImage = async (req, res, next) => {
   if (!req.file) return next();
 
   try {
-    const filename = crypto.randomBytes(16).toString('hex') + '.webp';
-    const filepath = path.join(uploadsDir, filename);
-
-    await sharp(req.file.buffer)
+    const webpBuffer = await sharp(req.file.buffer)
       .resize({ width: 800, height: 800, fit: 'inside', withoutEnlargement: true })
       .webp({ quality: 80 })
-      .toFile(filepath);
+      .toBuffer();
 
-    req.file.filename = filename;
-    req.file.path = `/uploads/${filename}`;
+    req.file.processedBuffer = webpBuffer;
+    req.file.mimetype = 'image/webp';
     next();
   } catch (error) {
     console.error('Image processing error:', error);

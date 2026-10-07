@@ -265,6 +265,69 @@ const getInternReputation = async (req, res) => {
   }
 };
 
+const getProjectReports = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const project = await prisma.project.findUnique({
+      where: { id },
+      include: { artisan: true, intern: true },
+    });
+
+    if (!project) return res.status(404).json({ error: 'Project not found' });
+    if (project.artisan.userId !== req.user.id && project.intern.userId !== req.user.id) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+
+    const reports = await prisma.projectReport.findMany({
+      where: { projectId: id },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    res.json(reports);
+  } catch (error) {
+    console.error('Get reports error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+const createProjectReport = async (req, res) => {
+  const { id } = req.params;
+  const { period, metric, value, notes } = req.body;
+
+  if (!period || !metric || !value) {
+    return res.status(400).json({ error: 'Period, metric, and value are required' });
+  }
+
+  try {
+    const project = await prisma.project.findUnique({
+      where: { id },
+      include: { intern: true },
+    });
+
+    if (!project) return res.status(404).json({ error: 'Project not found' });
+    if (project.intern.userId !== req.user.id) {
+      return res.status(403).json({ error: 'Only the Growth Manager can add reports' });
+    }
+
+    const report = await prisma.projectReport.create({
+      data: {
+        projectId: id,
+        internId: project.intern.id,
+        period,
+        metric,
+        value: String(value),
+        notes: notes || '',
+      },
+    });
+
+    res.status(201).json(report);
+  } catch (error) {
+    console.error('Create report error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
 module.exports = {
   getMyProjects,
   getProjectById,
@@ -273,4 +336,57 @@ module.exports = {
   createMessage,
   rateProject,
   getInternReputation,
+  getProjectReports,
+  createProjectReport,
+  getProjectSupport,
+  createProjectSupport
+};
+
+const getProjectSupport = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const project = await prisma.project.findUnique({
+      where: { id },
+      include: { artisan: true, intern: true }
+    });
+    if (!project) return res.status(404).json({ error: 'Project not found' });
+    if (project.artisan.userId !== req.user.id && project.intern.userId !== req.user.id) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+    const tickets = await prisma.supportTicket.findMany({
+      where: { projectId: id },
+      orderBy: { createdAt: 'desc' }
+    });
+    res.json(tickets);
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+const createProjectSupport = async (req, res) => {
+  const { id } = req.params;
+  const { category, message, priority } = req.body;
+  try {
+    const project = await prisma.project.findUnique({
+      where: { id },
+      include: { artisan: true, intern: true }
+    });
+    if (!project) return res.status(404).json({ error: 'Project not found' });
+    if (project.artisan.userId !== req.user.id && project.intern.userId !== req.user.id) {
+      return res.status(403).json({ error: 'Unauthorized' });
+    }
+    const ticket = await prisma.supportTicket.create({
+      data: {
+        userId: req.user.id,
+        projectId: id,
+        category,
+        message,
+        priority: priority || 'NORMAL',
+        status: 'OPEN'
+      }
+    });
+    res.status(201).json(ticket);
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
 };

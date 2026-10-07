@@ -20,6 +20,8 @@ import ProductDetails from './pages/ProductDetails';
 import CreateRequest from './pages/CreateRequest';
 import RequestDetails from './pages/RequestDetails';
 import ProjectWorkspace from './pages/ProjectWorkspace';
+import HowItWorksArtisan from './pages/HowItWorksArtisan';
+import HowItWorksGrowthManager from './pages/HowItWorksGrowthManager';
 
 function App() {
   const { user, logout, loading } = useAuth();
@@ -33,10 +35,25 @@ function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-amber-50/40">
-        <div className="text-center space-y-3">
-          <div className="w-12 h-12 border-4 border-amber-700 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="text-gray-500 font-semibold text-sm">Loading Bharat Bazaar...</p>
+      <div className="min-h-screen flex items-center justify-center bg-stone-50">
+        <div className="text-center space-y-6 max-w-sm px-6">
+          <div className="w-20 h-20 bg-amber-800 text-white rounded-3xl flex items-center justify-center text-4xl font-black mx-auto shadow-2xl relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-tr from-amber-900 to-amber-700"></div>
+            <span className="relative z-10">BB</span>
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-2xl font-black tracking-tight text-gray-900">Bharat Bazaar</h1>
+            <p className="text-sm font-medium text-amber-800 uppercase tracking-widest">
+              Local craft. Limitless possibilities.
+            </p>
+          </div>
+          <div className="pt-4 flex justify-center">
+            <div className="flex gap-1.5">
+              <div className="w-2 h-2 rounded-full bg-amber-700 animate-bounce" style={{ animationDelay: '0ms' }}></div>
+              <div className="w-2 h-2 rounded-full bg-amber-700 animate-bounce" style={{ animationDelay: '150ms' }}></div>
+              <div className="w-2 h-2 rounded-full bg-amber-700 animate-bounce" style={{ animationDelay: '300ms' }}></div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -65,59 +82,89 @@ function App() {
 
             {/* Navigation Links */}
             <nav className="flex items-center gap-2 sm:gap-5">
-              <Link
-                to="/marketplace"
-                className="text-xs sm:text-sm font-semibold text-gray-700 hover:text-amber-800 transition-colors px-3 py-2 rounded-xl hover:bg-amber-50/50"
-              >
-                Marketplace
-              </Link>
-
-              {user?.role === 'ARTISAN' && (
-                <Link
-                  to="/growth-managers"
-                  className="text-xs sm:text-sm font-semibold text-gray-700 hover:text-amber-800 transition-colors px-3 py-2 rounded-xl hover:bg-amber-50/50 flex items-center gap-1"
-                >
-                  <UserCheck className="w-3.5 h-3.5 text-amber-700" />
-                  Growth Managers
-                </Link>
+              {(!user || user.role === 'CUSTOMER') && (
+                <>
+                  <Link
+                    to="/marketplace"
+                    className="text-xs sm:text-sm font-semibold text-gray-700 hover:text-amber-800 transition-colors px-3 py-2 rounded-xl hover:bg-amber-50/50"
+                  >
+                    Marketplace
+                  </Link>
+                  <Link
+                    to="/how-it-works/artisan"
+                    className="text-xs sm:text-sm font-semibold text-gray-700 hover:text-amber-800 transition-colors px-3 py-2 rounded-xl hover:bg-amber-50/50 hidden md:inline"
+                  >
+                    For Artisans
+                  </Link>
+                </>
               )}
 
-              {user ? (
+              {user?.role === 'ARTISAN' && (
                 <>
                   <Link
                     to="/dashboard"
                     className="text-xs sm:text-sm font-semibold text-gray-700 hover:text-amber-800 transition-colors px-3 py-2 rounded-xl hover:bg-amber-50/50"
                   >
-                    Dashboard
+                    My Shop
                   </Link>
+                  <Link
+                    to="/growth-managers"
+                    className="text-xs sm:text-sm font-semibold text-gray-700 hover:text-amber-800 transition-colors px-3 py-2 rounded-xl hover:bg-amber-50/50 flex items-center gap-1"
+                  >
+                    <UserCheck className="w-3.5 h-3.5 text-amber-700" />
+                    Find a Manager
+                  </Link>
+                </>
+              )}
 
+              {user?.role === 'INTERN' && (
+                <>
+                  <Link
+                    to="/dashboard"
+                    className="text-xs sm:text-sm font-semibold text-gray-700 hover:text-amber-800 transition-colors px-3 py-2 rounded-xl hover:bg-amber-50/50"
+                  >
+                    Workspace
+                  </Link>
+                  <Link
+                    to="/marketplace"
+                    className="text-xs sm:text-sm font-semibold text-gray-700 hover:text-amber-800 transition-colors px-3 py-2 rounded-xl hover:bg-amber-50/50"
+                  >
+                    Marketplace
+                  </Link>
+                </>
+              )}
+
+              {user ? (
+                <>
                   {user.role === 'CUSTOMER' && (
                     <Link
                       to="/orders"
                       className="text-xs sm:text-sm font-semibold text-gray-700 hover:text-amber-800 transition-colors px-3 py-2 rounded-xl hover:bg-amber-50/50 flex items-center gap-1"
                     >
                       <Package className="w-3.5 h-3.5 text-amber-700" />
-                      My Orders
+                      Orders
                     </Link>
                   )}
 
                   {/* Cart Link with Badge */}
-                  <Link
-                    to="/cart"
-                    className="relative p-2 text-gray-700 hover:text-amber-800 transition-colors rounded-xl hover:bg-amber-50/50"
-                    title="Shopping Cart"
-                  >
-                    <ShoppingBag className="w-5 h-5 text-amber-800" />
-                    {itemCount > 0 && (
-                      <span className="absolute -top-1 -right-1 bg-amber-700 text-white text-[10px] font-extrabold w-5 h-5 rounded-full flex items-center justify-center shadow">
-                        {itemCount}
-                      </span>
-                    )}
-                  </Link>
+                  {user.role === 'CUSTOMER' && (
+                    <Link
+                      to="/cart"
+                      className="relative p-2 text-gray-700 hover:text-amber-800 transition-colors rounded-xl hover:bg-amber-50/50"
+                      title="Shopping Cart"
+                    >
+                      <ShoppingBag className="w-5 h-5 text-amber-800" />
+                      {itemCount > 0 && (
+                        <span className="absolute -top-1 -right-1 bg-amber-700 text-white text-[10px] font-extrabold w-5 h-5 rounded-full flex items-center justify-center shadow">
+                          {itemCount}
+                        </span>
+                      )}
+                    </Link>
+                  )}
 
                   <div className="flex items-center gap-3 pl-2 border-l border-gray-100">
                     <span className="text-xs font-bold text-gray-700 hidden md:inline">
-                      Hi, {user.name}
+                      Account: {user.name}
                     </span>
                     <button
                       onClick={handleLogout}
@@ -166,6 +213,8 @@ function App() {
       <main className="flex-grow">
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/how-it-works/artisan" element={<HowItWorksArtisan />} />
+          <Route path="/how-it-works/growth-manager" element={<HowItWorksGrowthManager />} />
           <Route path="/marketplace" element={<Marketplace />} />
           <Route path="/cart" element={<Cart />} />
           <Route path="/checkout" element={<Checkout />} />

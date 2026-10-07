@@ -68,6 +68,7 @@ model User {
   intern  Intern?
   cart    Cart?
   orders  Order[]
+  supportTickets SupportTicket[]
 }
 
 model Artisan {
@@ -107,6 +108,7 @@ model Intern {
   projects     Project[]
   ratings      Rating[]
   contracts    Contract[]
+  projectReports ProjectReport[]
 }
 
 model Product {
@@ -200,6 +202,8 @@ model Project {
   messages Message[]
   rating   Rating?
   contract Contract?
+  reports  ProjectReport[]
+  supportTickets SupportTicket[]
 }
 
 model Contract {
@@ -333,5 +337,53 @@ model Rating {
   intern    Intern   @relation(fields: [internId], references: [id])
   score     Int
   review    String?
+  createdAt DateTime @default(now())
+}
+
+model ArtisanAssistanceRequest {
+  id        String   @id @default(uuid())
+  name      String
+  phone     String
+  language  String
+  location  String
+  state     String
+  craft     String
+  message   String?
+  status    String   @default("NEW")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ProjectReport {
+  id        String   @id @default(uuid())
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  internId  String
+  intern    Intern   @relation(fields: [internId], references: [id])
+  period    String
+  metric    String
+  value     String
+  notes     String?
+  createdAt DateTime @default(now())
+}
+
+model SupportTicket {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  category  String
+  message   String
+  priority  String   @default("NORMAL")
+  status    String   @default("OPEN")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ImageRecord {
+  id        String   @id @default(uuid())
+  data      Bytes
+  mimetype  String   @default("image/webp")
   createdAt DateTime @default(now())
 }

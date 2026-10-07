@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { io } from 'socket.io-client';
 import { useAuth } from '../context/AuthContext';
+import { MessageSquare, BarChart, LifeBuoy, FileText } from 'lucide-react';
 
 export default function ProjectWorkspace() {
   const { id } = useParams();
@@ -23,20 +24,41 @@ export default function ProjectWorkspace() {
   const socketRef = useRef();
   const chatEndRef = useRef(null);
 
+  const [reports, setReports] = useState([]);
+  const [tickets, setTickets] = useState([]);
+  const [activeTab, setActiveTab] = useState('CHAT');
+
+  // Report states
+  const [newReportPeriod, setNewReportPeriod] = useState('Week 1');
+  const [newReportMetric, setNewReportMetric] = useState('Views');
+  const [newReportValue, setNewReportValue] = useState('');
+  const [newReportNotes, setNewReportNotes] = useState('');
+  const [submittingReport, setSubmittingReport] = useState(false);
+
+  // Ticket states
+  const [newTicketCategory, setNewTicketCategory] = useState('Technical Problem');
+  const [newTicketMessage, setNewTicketMessage] = useState('');
+  const [newTicketPriority, setNewTicketPriority] = useState('NORMAL');
+  const [submittingTicket, setSubmittingTicket] = useState(false);
+
   useEffect(() => {
     if (!user) {
       navigate('/login');
       return;
     }
 
-    const fetchProjectAndMessages = async () => {
+    const fetchProjectData = async () => {
       try {
-        const [projRes, msgRes] = await Promise.all([
+        const [projRes, msgRes, repRes, tickRes] = await Promise.all([
           axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/projects/${id}`),
-          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/projects/${id}/messages`)
+          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/projects/${id}/messages`),
+          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/projects/${id}/reports`),
+          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/projects/${id}/support`),
         ]);
         setProject(projRes.data);
         setMessages(msgRes.data);
+        setReports(repRes.data);
+        setTickets(tickRes.data);
       } catch (err) {
         console.error('Failed to load project', err);
         navigate('/dashboard');
@@ -45,7 +67,7 @@ export default function ProjectWorkspace() {
       }
     };
 
-    fetchProjectAndMessages();
+    fetchProjectData();
 
     // Socket.IO setup
     socketRef.current = io(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}`);
@@ -108,6 +130,46 @@ export default function ProjectWorkspace() {
       alert(err.response?.data?.error || 'Failed to submit rating');
     } finally {
       setIsSubmittingRating(false);
+    }
+  };
+
+  const handleCreateReport = async (e) => {
+    e.preventDefault();
+    if (!newReportValue) return;
+    try {
+      setSubmittingReport(true);
+      const res = await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/projects/${id}/reports`, {
+        period: newReportPeriod,
+        metric: newReportMetric,
+        value: newReportValue,
+        notes: newReportNotes,
+      });
+      setReports([res.data, ...reports]);
+      setNewReportValue('');
+      setNewReportNotes('');
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to submit report');
+    } finally {
+      setSubmittingReport(false);
+    }
+  };
+
+  const handleCreateTicket = async (e) => {
+    e.preventDefault();
+    if (!newTicketMessage) return;
+    try {
+      setSubmittingTicket(true);
+      const res = await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/projects/${id}/support`, {
+        category: newTicketCategory,
+        message: newTicketMessage,
+        priority: newTicketPriority,
+      });
+      setTickets([res.data, ...tickets]);
+      setNewTicketMessage('');
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to submit ticket');
+    } finally {
+      setSubmittingTicket(false);
     }
   };
 
@@ -228,58 +290,136 @@ export default function ProjectWorkspace() {
 
       </div>
 
-      {/* Main Area: Chat */}
+      {/* Main Area: Tabs */}
       <div className="md:w-2/3 flex flex-col card overflow-hidden">
-        <div className="p-4 border-b bg-gray-50">
-          <h2 className="font-bold text-text">Project Chat</h2>
+        <div className="flex border-b bg-white overflow-x-auto scrollbar-none">
+          <button onClick={() => setActiveTab('CHAT')} className={`px-6 py-4 text-sm font-bold flex items-center gap-2 ${activeTab === 'CHAT' ? 'border-b-2 border-amber-800 text-amber-900' : 'text-gray-500 hover:text-gray-700'}`}>
+            <MessageSquare className="w-4 h-4" /> Chat
+          </button>
+          <button onClick={() => setActiveTab('REPORTS')} className={`px-6 py-4 text-sm font-bold flex items-center gap-2 ${activeTab === 'REPORTS' ? 'border-b-2 border-amber-800 text-amber-900' : 'text-gray-500 hover:text-gray-700'}`}>
+            <BarChart className="w-4 h-4" /> Reports
+          </button>
+          <button onClick={() => setActiveTab('SUPPORT')} className={`px-6 py-4 text-sm font-bold flex items-center gap-2 ${activeTab === 'SUPPORT' ? 'border-b-2 border-amber-800 text-amber-900' : 'text-gray-500 hover:text-gray-700'}`}>
+            <LifeBuoy className="w-4 h-4" /> Support
+          </button>
         </div>
-        
-        <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50/30">
-          {messages.length === 0 ? (
-            <div className="text-center text-gray-400 mt-10">
-              No messages yet. Say hi!
+
+        {activeTab === 'CHAT' && (
+          <div className="flex-1 flex flex-col min-h-[400px]">
+            <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50/30">
+              {messages.length === 0 ? (
+                <div className="text-center text-gray-400 mt-10">No messages yet. Say hi!</div>
+              ) : (
+                messages.map((msg, idx) => {
+                  const isMine = msg.senderId === user.id;
+                  return (
+                    <div key={msg.id || idx} className={`flex flex-col ${isMine ? 'items-end' : 'items-start'}`}>
+                      <div className={`max-w-[75%] rounded-2xl px-4 py-2 ${
+                        isMine ? 'bg-amber-800 text-white rounded-br-none' : 'bg-gray-200 text-gray-800 rounded-bl-none'
+                      }`}>
+                        <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                      </div>
+                      <span className="text-[10px] text-gray-400 mt-1">
+                        {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                  );
+                })
+              )}
+              <div ref={chatEndRef} />
             </div>
-          ) : (
-            messages.map((msg, idx) => {
-              const isMine = msg.senderId === user.id;
-              // Avoid duplicate key warnings since socket gives same message that might already be in state if we pushed it manually,
-              // but we are pushing via socket, so it's fine. Wait, we rely on the socket callback to push to state.
-              return (
-                <div key={msg.id || idx} className={`flex flex-col ${isMine ? 'items-end' : 'items-start'}`}>
-                  <div className={`max-w-[75%] rounded-2xl px-4 py-2 ${
-                    isMine ? 'bg-primary text-white rounded-br-none' : 'bg-gray-200 text-text rounded-bl-none'
-                  }`}>
-                    <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-                  </div>
-                  <span className="text-[10px] text-gray-400 mt-1">
-                    {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </span>
+            <div className="p-4 border-t bg-white mt-auto">
+              <form onSubmit={handleSendMessage} className="flex gap-3">
+                <input
+                  type="text"
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  placeholder="Type your message..."
+                  className="flex-1 px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:border-amber-700"
+                  disabled={project.status === 'CANCELLED'}
+                />
+                <button 
+                  type="submit" 
+                  disabled={!newMessage.trim() || project.status === 'CANCELLED'}
+                  className="px-6 py-2 bg-amber-800 text-white font-bold rounded-xl disabled:opacity-50"
+                >
+                  Send
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'REPORTS' && (
+          <div className="flex-1 p-6 overflow-y-auto bg-gray-50/30 min-h-[400px]">
+            {user.role === 'INTERN' && (
+              <form onSubmit={handleCreateReport} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-6 space-y-4">
+                <h3 className="font-bold text-gray-800">Add Growth Report</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <input type="text" placeholder="Period (e.g. Week 1)" value={newReportPeriod} onChange={e => setNewReportPeriod(e.target.value)} className="p-2 border rounded text-sm" required />
+                  <select value={newReportMetric} onChange={e => setNewReportMetric(e.target.value)} className="p-2 border rounded text-sm">
+                    <option>Views</option><option>Sales</option><option>Revenue</option><option>Social Reach</option>
+                  </select>
+                  <input type="text" placeholder="Value (e.g. 500, Rs. 1000)" value={newReportValue} onChange={e => setNewReportValue(e.target.value)} className="p-2 border rounded text-sm col-span-2" required />
+                  <textarea placeholder="Notes (Optional)" value={newReportNotes} onChange={e => setNewReportNotes(e.target.value)} className="p-2 border rounded text-sm col-span-2 h-16" />
                 </div>
-              );
-            })
-          )}
-          <div ref={chatEndRef} />
-        </div>
-        
-        <div className="p-4 border-t bg-white">
-          <form onSubmit={handleSendMessage} className="flex gap-3">
-            <input
-              type="text"
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              placeholder="Type your message..."
-              className="flex-1 input-field py-2"
-              disabled={project.status === 'CANCELLED'}
-            />
-            <button 
-              type="submit" 
-              disabled={!newMessage.trim() || project.status === 'CANCELLED'}
-              className="btn-primary py-2 px-6 disabled:opacity-50"
-            >
-              Send
-            </button>
-          </form>
-        </div>
+                <button type="submit" disabled={submittingReport} className="px-4 py-2 bg-indigo-600 text-white font-bold rounded text-sm w-full">Submit Report</button>
+              </form>
+            )}
+            
+            <div className="space-y-4">
+              {reports.length === 0 ? (
+                <div className="text-center text-gray-500 py-8">No reports submitted yet.</div>
+              ) : (
+                reports.map(report => (
+                  <div key={report.id} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                    <div>
+                      <span className="text-xs font-bold text-gray-400">{report.period}</span>
+                      <h4 className="text-lg font-extrabold text-indigo-900">{report.metric}: {report.value}</h4>
+                      {report.notes && <p className="text-sm text-gray-600 mt-1">{report.notes}</p>}
+                    </div>
+                    <span className="text-xs text-gray-400 whitespace-nowrap">{new Date(report.createdAt).toLocaleDateString()}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'SUPPORT' && (
+          <div className="flex-1 p-6 overflow-y-auto bg-gray-50/30 min-h-[400px]">
+            <form onSubmit={handleCreateTicket} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 mb-6 space-y-4">
+              <h3 className="font-bold text-gray-800">Submit Support Ticket</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <select value={newTicketCategory} onChange={e => setNewTicketCategory(e.target.value)} className="p-2 border rounded text-sm">
+                  <option>Technical Problem</option><option>Product Problem</option><option>Contract Problem</option><option>Other</option>
+                </select>
+                <select value={newTicketPriority} onChange={e => setNewTicketPriority(e.target.value)} className="p-2 border rounded text-sm">
+                  <option value="NORMAL">Normal</option><option value="HIGH">High</option><option value="URGENT">Urgent</option>
+                </select>
+                <textarea placeholder="Describe your issue..." value={newTicketMessage} onChange={e => setNewTicketMessage(e.target.value)} className="p-2 border rounded text-sm col-span-1 sm:col-span-2 h-20" required />
+              </div>
+              <button type="submit" disabled={submittingTicket} className="px-4 py-2 bg-red-600 text-white font-bold rounded text-sm w-full">Submit Ticket</button>
+            </form>
+            
+            <div className="space-y-4">
+              {tickets.length === 0 ? (
+                <div className="text-center text-gray-500 py-8">No support tickets.</div>
+              ) : (
+                tickets.map(ticket => (
+                  <div key={ticket.id} className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+                    <div className="flex justify-between mb-2">
+                      <span className="text-xs font-bold text-gray-500 uppercase">{ticket.category}</span>
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded ${ticket.status === 'OPEN' ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-600'}`}>{ticket.status}</span>
+                    </div>
+                    <p className="text-sm text-gray-800">{ticket.message}</p>
+                    <span className="text-xs text-gray-400 mt-2 block">{new Date(ticket.createdAt).toLocaleDateString()}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
       </div>
       
     </div>

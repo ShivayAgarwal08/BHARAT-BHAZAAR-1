@@ -2,11 +2,13 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import { Mic, MicOff, Sparkles, AlertCircle } from 'lucide-react';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function AddProduct() {
   const { id } = useParams();
   const isEditing = !!id;
   const navigate = useNavigate();
+  const { t } = useLanguage();
   
   const [formData, setFormData] = useState({
     title: '',
@@ -245,7 +247,7 @@ export default function AddProduct() {
         
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label className="block text-sm font-medium text-text mb-1">Product Name</label>
+            <label className="block text-sm font-medium text-text mb-1">{t('titleLabel')}</label>
             <input
               type="text"
               name="title"

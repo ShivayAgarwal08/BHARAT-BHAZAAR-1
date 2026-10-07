@@ -143,6 +143,27 @@ export default function ContractDetails() {
             >
               {contract.status}
             </span>
+            <button
+              onClick={async () => {
+                try {
+                  const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/contracts/${id}/pdf`, {
+                    responseType: 'blob'
+                  });
+                  const url = window.URL.createObjectURL(new Blob([res.data]));
+                  const link = document.createElement('a');
+                  link.href = url;
+                  link.setAttribute('download', `Bharat-Bazaar-Growth-Agreement-${id}.pdf`);
+                  document.body.appendChild(link);
+                  link.click();
+                  link.parentNode.removeChild(link);
+                } catch (err) {
+                  alert('Failed to download PDF');
+                }
+              }}
+              className="px-4 py-1.5 bg-gray-100 text-gray-700 font-bold rounded-full text-xs hover:bg-gray-200 transition-colors shadow-sm sm:inline-block"
+            >
+              Download Agreement PDF
+            </button>
             {(contract.status === 'ACTIVE' || contract.status === 'COMPLETED') && contract.projectId && (
               <Link
                 to={`/projects/${contract.projectId}`}

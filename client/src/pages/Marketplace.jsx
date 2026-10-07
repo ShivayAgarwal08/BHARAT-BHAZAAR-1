@@ -239,7 +239,7 @@ export default function Marketplace() {
                     <span className="w-6 h-6 rounded-full bg-amber-100 text-amber-800 font-bold flex items-center justify-center text-xs">
                       {product.artisanName[0]}
                     </span>
-                    <span className="font-medium text-gray-700 truncate">{product.artisanName}</span>
+                    <span className="font-medium text-gray-700 truncate">By {product.artisanName}</span>
                     {product.location && (
                       <span className="flex items-center gap-0.5 text-gray-400 ml-auto text-xs">
                         <MapPin className="w-3 h-3 text-amber-600" />

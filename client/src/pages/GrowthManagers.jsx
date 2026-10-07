@@ -13,7 +13,9 @@ const TIERS = [
 ];
 
 export default function GrowthManagers() {
+  const { user } = useAuth();
   const [interns, setInterns] = useState([]);
+  const [openRequests, setOpenRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedTier, setSelectedTier] = useState('All');
   const [searchSkill, setSearchSkill] = useState('');
@@ -28,12 +30,26 @@ export default function GrowthManagers() {
   const [submittingContract, setSubmittingContract] = useState(false);
   const [contractError, setContractError] = useState('');
 
-  const { user } = useAuth();
+
   const navigate = useNavigate();
 
-  useEffect(() => {
-    fetchInterns();
-  }, [selectedTier]);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+
+  const fetchRequests = async (currentPage = 1) => {
+    try {
+      setLoading(true);
+      const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/requests?status=OPEN&page=${currentPage}&limit=10`);
+      setOpenRequests(res.data.data || res.data);
+      if (res.data.meta) {
+        setTotalPages(res.data.meta.totalPages);
+      }
+    } catch (err) {
+      console.error('Fetch requests error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchInterns = async () => {
     try {
@@ -51,6 +67,16 @@ export default function GrowthManagers() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (user?.role === 'INTERN') {
+      fetchRequests(page);
+    } else {
+      fetchInterns();
+    }
+  }, [selectedTier, user, page]);
+
+
 
   const handleCreateContractProposal = async (e) => {
     e.preventDefault();
@@ -91,6 +117,110 @@ export default function GrowthManagers() {
       i.name.toLowerCase().includes(searchSkill.toLowerCase()) ||
       (i.college && i.college.toLowerCase().includes(searchSkill.toLowerCase()));
   });
+
+  const filteredRequests = openRequests.filter((r) => {
+    if (!searchSkill) return true;
+    return r.title.toLowerCase().includes(searchSkill.toLowerCase()) ||
+      r.description.toLowerCase().includes(searchSkill.toLowerCase()) ||
+      (r.category && r.category.toLowerCase().includes(searchSkill.toLowerCase()));
+  });
+
+  if (user?.role === 'INTERN') {
+    return (
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        <div className="bg-gradient-to-r from-amber-900 via-amber-800 to-yellow-900 rounded-3xl p-8 sm:p-12 text-white shadow-xl relative overflow-hidden">
+          <div className="max-w-2xl space-y-4">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 text-amber-200 text-xs font-semibold uppercase tracking-wider border border-amber-400/30">
+              <Star className="w-3.5 h-3.5" /> Growth Opportunities
+            </span>
+            <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+              Partner with Indian Artisans to Grow Their Digital Business
+            </h1>
+            <p className="text-amber-100 text-sm sm:text-base leading-relaxed">
+              Browse open requests from artisans who need help with cataloguing, branding, social media, shipping, and e-commerce.
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-gray-100 space-y-4">
+          <div className="relative flex-grow w-full">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search opportunities..."
+              value={searchSkill}
+              onChange={(e) => setSearchSkill(e.target.value)}
+              className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-700"
+            />
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="text-center py-8">Loading opportunities...</div>
+        ) : filteredRequests.length === 0 ? (
+          <div className="bg-white rounded-2xl p-12 border border-gray-100 text-center space-y-3">
+            <Star className="w-12 h-12 text-gray-300 mx-auto" />
+            <h3 className="text-xl font-bold text-gray-900">No open requests found</h3>
+            <p className="text-gray-500 max-w-sm mx-auto">
+              Check back soon for new opportunities to help artisans grow.
+            </p>
+          </div>
+        ) : (
+          <div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+              {filteredRequests.map(req => (
+                <div key={req.id} className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm flex flex-col justify-between space-y-4">
+                  <div>
+                    <div className="flex justify-between items-start mb-2">
+                      <span className="bg-amber-50 text-amber-800 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider">
+                        {req.category}
+                      </span>
+                      <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded">
+                        Budget: {req.budget || 'Negotiable'}
+                      </span>
+                    </div>
+                    <h3 className="text-lg font-bold text-gray-900 mb-1">{req.title}</h3>
+                    <p className="text-xs text-gray-500 mb-3">By {req.artisan?.user?.name || 'Artisan'}</p>
+                    <p className="text-sm text-gray-600 line-clamp-3 leading-relaxed">
+                      {req.description}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => navigate(`/dashboard/requests/${req.id}`)}
+                    className="w-full py-2.5 bg-gray-50 hover:bg-gray-100 text-gray-800 font-bold rounded-xl text-sm transition-colors border border-gray-200"
+                  >
+                    View Request Details
+                  </button>
+                </div>
+              ))}
+            </div>
+            
+            {totalPages > 1 && (
+              <div className="flex justify-center items-center gap-4">
+                <button
+                  disabled={page === 1}
+                  onClick={() => { setPage(p => p - 1); window.scrollTo(0, 0); }}
+                  className="px-4 py-2 border rounded-xl disabled:opacity-50 text-sm font-bold bg-white"
+                >
+                  Previous
+                </button>
+                <span className="text-sm font-semibold text-gray-600">
+                  Page {page} of {totalPages}
+                </span>
+                <button
+                  disabled={page === totalPages}
+                  onClick={() => { setPage(p => p + 1); window.scrollTo(0, 0); }}
+                  className="px-4 py-2 border rounded-xl disabled:opacity-50 text-sm font-bold bg-white"
+                >
+                  Next
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">

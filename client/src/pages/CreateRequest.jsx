@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function CreateRequest() {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
@@ -45,8 +47,8 @@ export default function CreateRequest() {
   return (
     <div className="max-w-3xl mx-auto px-4 py-12">
       <div className="mb-8">
-        <h1 className="text-3xl font-extrabold text-text">Create Growth Request</h1>
-        <p className="text-text-light mt-2">Find a student to help grow your business digitally.</p>
+        <h1 className="text-3xl font-extrabold text-text">{t('createRequest')}</h1>
+        <p className="text-text-light mt-2">{t('createRequestSub')}</p>
       </div>
 
       <div className="card p-8">

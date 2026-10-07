@@ -14,6 +14,9 @@ const orderRoutes = require('./routes/orderRoutes');
 const contractRoutes = require('./routes/contractRoutes');
 const internRoutes = require('./routes/internRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
+const imageRoutes = require('./routes/imageRoutes');
+const assistanceRoutes = require('./routes/assistanceRoutes');
+const supportRoutes = require('./routes/supportRoutes');
 const path = require('path');
 
 const app = express();
@@ -42,6 +45,9 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/contracts', contractRoutes);
 app.use('/api/interns', internRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/images', imageRoutes);
+app.use('/api/assistance', assistanceRoutes);
+app.use('/api/support', supportRoutes);
 
 // Base route
 app.get('/', (req, res) => {
