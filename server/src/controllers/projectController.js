@@ -328,19 +328,7 @@ const createProjectReport = async (req, res) => {
   }
 };
 
-module.exports = {
-  getMyProjects,
-  getProjectById,
-  completeProject,
-  getProjectMessages,
-  createMessage,
-  rateProject,
-  getInternReputation,
-  getProjectReports,
-  createProjectReport,
-  getProjectSupport,
-  createProjectSupport
-};
+
 
 const getProjectSupport = async (req, res) => {
   const { id } = req.params;
@@ -389,4 +377,18 @@ const createProjectSupport = async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: 'Server error' });
   }
+};
+
+module.exports = {
+  getMyProjects,
+  getProjectById,
+  completeProject,
+  getProjectMessages,
+  createMessage,
+  rateProject,
+  getInternReputation,
+  getProjectReports,
+  createProjectReport,
+  getProjectSupport,
+  createProjectSupport
 };
