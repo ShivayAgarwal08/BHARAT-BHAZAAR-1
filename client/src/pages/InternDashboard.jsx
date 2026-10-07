@@ -52,7 +52,7 @@ export default function InternDashboard() {
           axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/contracts/my`),
         ]);
 
-        setOpenRequests(reqRes.data);
+        setOpenRequests(reqRes.data.data || reqRes.data);
         setMyApplications(appRes.data);
         setContracts(contractRes.data);
 
