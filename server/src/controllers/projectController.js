@@ -11,6 +11,112 @@ const getMyProjects = async (req, res) => {
     if (isArtisan) {
       userProfile = await prisma.artisan.findUnique({ where: { userId: req.user.id } });
       if (!userProfile) return res.status(404).json({ error: 'Artisan profile not found' });
+
+      // Proactively self-heal any active contracts without linked projects for this artisan
+      const unlinkedContracts = await prisma.contract.findMany({
+        where: {
+          artisanId: userProfile.id,
+          status: 'ACTIVE',
+          projectId: null,
+        },
+      });
+
+      for (const contract of unlinkedContracts) {
+        try {
+          let linkedProject = null;
+          if (contract.requestId) {
+            linkedProject = await prisma.project.findUnique({
+              where: { requestId: contract.requestId },
+            });
+          }
+          if (!linkedProject) {
+            const candidateProjects = await prisma.project.findMany({
+              where: {
+                artisanId: contract.artisanId,
+                internId: contract.internId,
+              },
+            });
+            if (candidateProjects.length === 1) {
+              linkedProject = candidateProjects[0];
+            }
+          }
+
+          if (linkedProject) {
+            await prisma.contract.update({
+              where: { id: contract.id },
+              data: { projectId: linkedProject.id },
+            });
+          } else {
+            await prisma.$transaction(async (tx) => {
+              let reqId = contract.requestId;
+              let appId = null;
+
+              if (!reqId) {
+                const newReq = await tx.managerRequest.create({
+                  data: {
+                    artisanId: contract.artisanId,
+                    title: `Partnership: ${contract.title}`,
+                    description: 'Growth and operational partnership.',
+                    category: 'Growth Partnership',
+                    status: 'IN_PROGRESS',
+                  },
+                });
+                reqId = newReq.id;
+                const newApp = await tx.application.create({
+                  data: {
+                    requestId: reqId,
+                    internId: contract.internId,
+                    message: 'Partnership initiated.',
+                    status: 'ACCEPTED',
+                  },
+                });
+                appId = newApp.id;
+              } else {
+                let existingApp = await tx.application.findFirst({
+                  where: { requestId: reqId, internId: contract.internId },
+                });
+                if (existingApp) {
+                  if (existingApp.status !== 'ACCEPTED') {
+                    await tx.application.update({
+                      where: { id: existingApp.id },
+                      data: { status: 'ACCEPTED' },
+                    });
+                  }
+                  appId = existingApp.id;
+                } else {
+                  const newApp = await tx.application.create({
+                    data: {
+                      requestId: reqId,
+                      internId: contract.internId,
+                      message: 'Partnership initiated.',
+                      status: 'ACCEPTED',
+                    },
+                  });
+                  appId = newApp.id;
+                }
+              }
+
+              const newProject = await tx.project.create({
+                data: {
+                  requestId: reqId,
+                  applicationId: appId,
+                  artisanId: contract.artisanId,
+                  internId: contract.internId,
+                  status: 'IN_PROGRESS',
+                },
+              });
+
+              await tx.contract.update({
+                where: { id: contract.id },
+                data: { projectId: newProject.id },
+              });
+            });
+          }
+        } catch (linkErr) {
+          console.warn(`Could not self-heal contract ${contract.id}:`, linkErr.message);
+        }
+      }
+
       projects = await prisma.project.findMany({
         where: { artisanId: userProfile.id },
         include: {
@@ -22,6 +128,112 @@ const getMyProjects = async (req, res) => {
     } else if (isIntern) {
       userProfile = await prisma.intern.findUnique({ where: { userId: req.user.id } });
       if (!userProfile) return res.status(404).json({ error: 'Intern profile not found' });
+
+      // Proactively self-heal any active contracts without linked projects for this intern
+      const unlinkedContracts = await prisma.contract.findMany({
+        where: {
+          internId: userProfile.id,
+          status: 'ACTIVE',
+          projectId: null,
+        },
+      });
+
+      for (const contract of unlinkedContracts) {
+        try {
+          let linkedProject = null;
+          if (contract.requestId) {
+            linkedProject = await prisma.project.findUnique({
+              where: { requestId: contract.requestId },
+            });
+          }
+          if (!linkedProject) {
+            const candidateProjects = await prisma.project.findMany({
+              where: {
+                artisanId: contract.artisanId,
+                internId: contract.internId,
+              },
+            });
+            if (candidateProjects.length === 1) {
+              linkedProject = candidateProjects[0];
+            }
+          }
+
+          if (linkedProject) {
+            await prisma.contract.update({
+              where: { id: contract.id },
+              data: { projectId: linkedProject.id },
+            });
+          } else {
+            await prisma.$transaction(async (tx) => {
+              let reqId = contract.requestId;
+              let appId = null;
+
+              if (!reqId) {
+                const newReq = await tx.managerRequest.create({
+                  data: {
+                    artisanId: contract.artisanId,
+                    title: `Partnership: ${contract.title}`,
+                    description: 'Growth and operational partnership.',
+                    category: 'Growth Partnership',
+                    status: 'IN_PROGRESS',
+                  },
+                });
+                reqId = newReq.id;
+                const newApp = await tx.application.create({
+                  data: {
+                    requestId: reqId,
+                    internId: contract.internId,
+                    message: 'Partnership initiated.',
+                    status: 'ACCEPTED',
+                  },
+                });
+                appId = newApp.id;
+              } else {
+                let existingApp = await tx.application.findFirst({
+                  where: { requestId: reqId, internId: contract.internId },
+                });
+                if (existingApp) {
+                  if (existingApp.status !== 'ACCEPTED') {
+                    await tx.application.update({
+                      where: { id: existingApp.id },
+                      data: { status: 'ACCEPTED' },
+                    });
+                  }
+                  appId = existingApp.id;
+                } else {
+                  const newApp = await tx.application.create({
+                    data: {
+                      requestId: reqId,
+                      internId: contract.internId,
+                      message: 'Partnership initiated.',
+                      status: 'ACCEPTED',
+                    },
+                  });
+                  appId = newApp.id;
+                }
+              }
+
+              const newProject = await tx.project.create({
+                data: {
+                  requestId: reqId,
+                  applicationId: appId,
+                  artisanId: contract.artisanId,
+                  internId: contract.internId,
+                  status: 'IN_PROGRESS',
+                },
+              });
+
+              await tx.contract.update({
+                where: { id: contract.id },
+                data: { projectId: newProject.id },
+              });
+            });
+          }
+        } catch (linkErr) {
+          console.warn(`Could not self-heal contract ${contract.id}:`, linkErr.message);
+        }
+      }
+
       projects = await prisma.project.findMany({
         where: { internId: userProfile.id },
         include: {

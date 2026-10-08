@@ -621,6 +621,9 @@ const getContractPdf = async (req, res) => {
     doc.moveDown(3);
 
     // 8. SIGNATURES
+    if (doc.y > doc.page.height - 140) {
+      doc.addPage();
+    }
     doc.fontSize(12).font('Helvetica-Bold').fillColor('#9ca3af').text('8. DIGITAL ACKNOWLEDGEMENT & SIGNATURES', { tracking: 2, align: 'center' });
     doc.moveDown(1);
 
