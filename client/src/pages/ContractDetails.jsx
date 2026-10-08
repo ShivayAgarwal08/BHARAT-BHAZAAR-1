@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { FileText, CheckCircle2, Calendar, ShieldCheck, UserCheck, Plus, CheckSquare, Square, ArrowLeft, Download, PenTool, CheckCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext';
 export default function ContractDetails() {
   const { id } = useParams();
   const { user } = useAuth();
+  const location = useLocation();
 
   const [contract, setContract] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -111,19 +112,26 @@ export default function ContractDetails() {
 
       {/* Top Actions */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-        <Link
-          to={contract.projectId ? `/projects/${contract.projectId}` : '/dashboard'}
-          className="inline-flex items-center gap-1 text-sm font-semibold text-gray-600 hover:text-amber-800"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          {contract.projectId ? 'Back to Partnership Workspace' : 'Back to Dashboard'}
-        </Link>
+        {(() => {
+          const targetProjectId = contract.projectId || location.state?.projectId;
+          return (
+            <Link
+              to={targetProjectId ? `/projects/${targetProjectId}` : '/dashboard'}
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 font-semibold rounded-xl text-sm hover:bg-gray-50 hover:border-gray-300 transition-colors shadow-sm"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              {targetProjectId ? 'Back to Partnership Workspace' : 'Back to Dashboard'}
+            </Link>
+          );
+        })()}
         <div className="flex gap-2">
           <button
             onClick={async () => {
               try {
+                const token = localStorage.getItem('token');
                 const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/contracts/${id}/pdf`, {
-                  responseType: 'blob'
+                  responseType: 'blob',
+                  headers: token ? { Authorization: `Bearer ${token}` } : {}
                 });
                 const url = window.URL.createObjectURL(new Blob([res.data]));
                 const link = document.createElement('a');
@@ -132,11 +140,19 @@ export default function ContractDetails() {
                 document.body.appendChild(link);
                 link.click();
                 link.parentNode.removeChild(link);
+                window.URL.revokeObjectURL(url);
               } catch (err) {
-                alert('Failed to download PDF');
+                console.error('PDF download error:', err);
+                if (!err.response) {
+                  setError('Unable to reach the server. Please try again.');
+                } else if (err.response.status === 403) {
+                  setError('You are not authorized to download this agreement.');
+                } else {
+                  setError('Failed to download PDF. Please try again.');
+                }
               }
             }}
-            className="px-4 py-2 bg-white border border-gray-200 text-gray-700 font-bold rounded-xl text-xs hover:bg-gray-50 transition-colors shadow-sm inline-flex items-center gap-2"
+            className="px-4 py-2.5 bg-white border border-gray-200 text-gray-700 font-bold rounded-xl text-xs hover:bg-gray-50 hover:border-gray-300 transition-colors shadow-sm inline-flex items-center gap-2"
           >
             <Download className="w-4 h-4" /> Download PDF
           </button>

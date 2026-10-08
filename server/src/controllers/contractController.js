@@ -32,10 +32,25 @@ const createContract = async (req, res) => {
     const intern = await prisma.intern.findUnique({ where: { id: internId } });
     if (!intern) return res.status(404).json({ error: 'Growth Manager not found' });
 
+    // Check if there is an existing project for this request or artisan-intern pair
+    let existingProjectId = null;
+    if (requestId) {
+      const proj = await prisma.project.findUnique({ where: { requestId } });
+      if (proj) existingProjectId = proj.id;
+    }
+    if (!existingProjectId) {
+      const proj = await prisma.project.findFirst({
+        where: { artisanId: artisan.id, internId: intern.id, status: 'IN_PROGRESS' },
+        orderBy: { createdAt: 'desc' },
+      });
+      if (proj) existingProjectId = proj.id;
+    }
+
     const contract = await prisma.contract.create({
       data: {
         artisanId: artisan.id,
         internId: intern.id,
+        projectId: existingProjectId || null,
         requestId: requestId || null,
         title,
         description: description || '',
@@ -120,11 +135,11 @@ const getContractById = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const contract = await prisma.contract.findUnique({
+    let contract = await prisma.contract.findUnique({
       where: { id },
       include: {
-        artisan: { include: { user: { select: { name: true, phone: true } } } },
-        intern: { include: { user: { select: { name: true, phone: true } } } },
+        artisan: { include: { user: { select: { id: true, name: true, phone: true } } } },
+        intern: { include: { user: { select: { id: true, name: true, phone: true } } } },
         tasks: { orderBy: { createdAt: 'asc' } },
         project: true,
         request: true,
@@ -133,8 +148,40 @@ const getContractById = async (req, res) => {
 
     if (!contract) return res.status(404).json({ error: 'Contract not found' });
 
-    const isArtisan = contract.artisan.user.phone === req.user.phone || contract.artisanId === req.user.id;
-    const isIntern = contract.intern.user.phone === req.user.phone || contract.internId === req.user.id;
+    const isArtisan = contract.artisan.userId === req.user.id || contract.artisan.user.phone === req.user.phone;
+    const isIntern = contract.intern.userId === req.user.id || contract.intern.user.phone === req.user.phone;
+
+    if (!isArtisan && !isIntern) {
+      return res.status(403).json({ error: 'Unauthorized to view this contract' });
+    }
+
+    // Proactively connect / self-heal Project relation if missing
+    if (!contract.projectId) {
+      let linkedProject = null;
+      if (contract.requestId) {
+        linkedProject = await prisma.project.findUnique({
+          where: { requestId: contract.requestId },
+        });
+      }
+      if (!linkedProject) {
+        linkedProject = await prisma.project.findFirst({
+          where: {
+            artisanId: contract.artisanId,
+            internId: contract.internId,
+          },
+          orderBy: { createdAt: 'desc' },
+        });
+      }
+
+      if (linkedProject) {
+        await prisma.contract.update({
+          where: { id: contract.id },
+          data: { projectId: linkedProject.id },
+        });
+        contract.projectId = linkedProject.id;
+        contract.project = linkedProject;
+      }
+    }
 
     res.json(contract);
   } catch (error) {
@@ -315,14 +362,6 @@ const toggleContractTask = async (req, res) => {
   }
 };
 
-module.exports = {
-  createContract,
-  getMyContracts,
-  getContractById,
-  agreeContract,
-  createContractTask,
-  toggleContractTask,
-};
 
 const getContractPdf = async (req, res) => {
   const { id } = req.params;

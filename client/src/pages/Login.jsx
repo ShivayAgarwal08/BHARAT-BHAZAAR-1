@@ -31,7 +31,15 @@ export default function Login() {
       }
     } catch (err) {
       console.error('Login error:', err);
-      setError(err.response?.data?.error || 'Invalid credentials. Please try again.');
+      if (!err.response) {
+        setError('Unable to reach the server. Please check your connection and try again.');
+      } else if (err.response.status === 500) {
+        setError('Server is temporarily unavailable. Please try again in a moment.');
+      } else if (err.response.status === 401) {
+        setError(err.response.data?.error || 'Invalid phone number or password.');
+      } else {
+        setError(err.response.data?.error || 'Something went wrong. Please try again.');
+      }
     } finally {
       setLoading(false);
     }

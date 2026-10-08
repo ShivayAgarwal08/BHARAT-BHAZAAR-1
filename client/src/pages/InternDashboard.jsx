@@ -232,42 +232,61 @@ export default function InternDashboard() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {contracts.map((contract) => (
-              <Link
-                key={contract.id}
-                to={`/contracts/${contract.id}`}
-                className="border border-gray-100 rounded-2xl p-5 hover:shadow-md transition bg-white flex flex-col justify-between space-y-4 block group"
-              >
-                <div className="space-y-2">
-                  <div className="flex justify-between items-start">
-                    <span className="bg-amber-50 text-amber-800 px-2.5 py-1 rounded-md text-[10px] font-extrabold uppercase">
-                      {contract.tier} Tier
-                    </span>
-                    <span
-                      className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase ${
-                        contract.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
-                      }`}
-                    >
-                      {contract.status}
-                    </span>
+            {contracts.map((contract) => {
+              const targetProjectId = contract.projectId || contract.project?.id;
+              return (
+                <div
+                  key={contract.id}
+                  className="border border-gray-100 rounded-2xl p-5 hover:shadow-md transition bg-white flex flex-col justify-between space-y-4"
+                >
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-start">
+                      <span className="bg-amber-50 text-amber-800 px-2.5 py-1 rounded-md text-[10px] font-extrabold uppercase">
+                        {contract.tier} Tier
+                      </span>
+                      <span
+                        className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase ${
+                          contract.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                        }`}
+                      >
+                        {contract.status}
+                      </span>
+                    </div>
+
+                    <h3 className="font-bold text-base text-gray-900">
+                      {contract.title}
+                    </h3>
+                    <p className="text-xs text-gray-500">
+                      Artisan Client: <span className="font-semibold text-gray-800">{contract.artisan?.user?.name}</span>
+                    </p>
                   </div>
 
-                  <h3 className="font-bold text-base text-gray-900 group-hover:text-amber-800 transition-colors">
-                    {contract.title}
-                  </h3>
-                  <p className="text-xs text-gray-500">
-                    Artisan Client: <span className="font-semibold text-gray-800">{contract.artisan?.user?.name}</span>
-                  </p>
+                  <div className="pt-3 border-t border-gray-100 space-y-3">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="font-bold text-amber-900">₹{contract.paymentAmount} ({contract.paymentType})</span>
+                      <span className="text-xs text-gray-500">{contract.tasks?.filter(t => t.isCompleted).length || 0} tasks done</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {targetProjectId && (
+                        <Link
+                          to={`/projects/${targetProjectId}`}
+                          className="flex-1 text-center py-2 px-3 bg-amber-700 text-white rounded-xl text-xs font-bold hover:bg-amber-800 transition-colors shadow-sm"
+                        >
+                          Open Workspace &rarr;
+                        </Link>
+                      )}
+                      <Link
+                        to={`/contracts/${contract.id}`}
+                        state={{ projectId: targetProjectId }}
+                        className="py-2 px-3 bg-white border border-gray-200 text-gray-700 rounded-xl text-xs font-semibold hover:bg-gray-50 transition-colors text-center"
+                      >
+                        Agreement
+                      </Link>
+                    </div>
+                  </div>
                 </div>
-
-                <div className="pt-3 border-t border-gray-100 flex justify-between items-center text-xs">
-                  <span className="font-bold text-amber-900">₹{contract.paymentAmount} ({contract.paymentType})</span>
-                  <span className="text-amber-800 font-bold flex items-center gap-1 group-hover:translate-x-1 transition-all">
-                    Open Contract &rarr;
-                  </span>
-                </div>
-              </Link>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

@@ -5,6 +5,190 @@ import { io } from 'socket.io-client';
 import { useAuth } from '../context/AuthContext';
 import { MessageSquare, BarChart, LifeBuoy, FileText, BarChart2, TrendingUp, Calendar, Clock, Target, CheckCircle, ArrowRight, Package, LayoutDashboard, ClipboardList } from 'lucide-react';
 
+const parseReportNotes = (notes) => {
+  if (!notes) return { description: '', source: '', category: 'Marketplace', unit: '' };
+  try {
+    if (typeof notes === 'string' && notes.startsWith('{') && notes.endsWith('}')) {
+      const parsed = JSON.parse(notes);
+      return {
+        description: parsed.description || '',
+        source: parsed.source || '',
+        category: parsed.category || 'Marketplace',
+        unit: parsed.unit || '',
+        date: parsed.date || '',
+      };
+    }
+  } catch (e) {}
+  const parts = typeof notes === 'string' ? notes.split('|SOURCE:') : [];
+  return {
+    description: parts[0]?.trim() || (typeof notes === 'string' ? notes : ''),
+    source: parts[1]?.trim() || '',
+    category: 'Marketplace',
+    unit: '',
+    date: '',
+  };
+};
+
+function PerformanceCharts({ reports }) {
+  const numericReports = (reports || []).filter(r => {
+    const rawNum = String(r.value || '').replace(/[^0-9.-]+/g, '');
+    const num = parseFloat(rawNum);
+    return !isNaN(num);
+  });
+
+  const metrics = Array.from(new Set(numericReports.map(r => r.metric)));
+  const [selectedMetric, setSelectedMetric] = useState(metrics[0] || '');
+
+  useEffect(() => {
+    if (metrics.length > 0 && (!selectedMetric || !metrics.includes(selectedMetric))) {
+      setSelectedMetric(metrics[0]);
+    }
+  }, [reports]);
+
+  if (numericReports.length === 0) return null;
+
+  const currentMetric = metrics.includes(selectedMetric) ? selectedMetric : metrics[0];
+  const metricData = numericReports
+    .filter(r => r.metric === currentMetric)
+    .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+  if (metricData.length === 0) return null;
+
+  const values = metricData.map(r => parseFloat(String(r.value).replace(/[^0-9.-]+/g, '')));
+  const maxVal = Math.max(...values, 1);
+  const minVal = Math.min(...values, 0);
+  const range = maxVal - minVal || 1;
+
+  const sourceBreakdown = {};
+  metricData.forEach(r => {
+    const parsed = parseReportNotes(r.notes);
+    const src = parsed.source || 'Direct / Store';
+    const val = parseFloat(String(r.value).replace(/[^0-9.-]+/g, '')) || 0;
+    sourceBreakdown[src] = (sourceBreakdown[src] || 0) + val;
+  });
+
+  const width = 500;
+  const height = 180;
+  const paddingX = 45;
+  const paddingY = 30;
+
+  const points = metricData.map((d, i) => {
+    const x = metricData.length === 1
+      ? width / 2
+      : paddingX + (i / (metricData.length - 1)) * (width - 2 * paddingX);
+    const val = parseFloat(String(d.value).replace(/[^0-9.-]+/g, ''));
+    const y = height - paddingY - ((val - minVal) / range) * (height - 2 * paddingY);
+    return { x, y, val, period: d.period };
+  });
+
+  const pathD = points.length > 1
+    ? points.reduce((acc, p, i) => `${acc} ${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`, '')
+    : '';
+
+  const areaD = points.length > 1
+    ? `${pathD} L ${points[points.length - 1].x} ${height - paddingY} L ${points[0].x} ${height - paddingY} Z`
+    : '';
+
+  const totalSourceVal = Object.values(sourceBreakdown).reduce((a, b) => a + b, 0) || 1;
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h3 className="font-bold text-gray-900 text-lg flex items-center gap-2">
+            <TrendingUp className="w-5 h-5 text-amber-600" />
+            Performance Trends & Distribution
+          </h3>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Real historical progress and channel breakdown.
+          </p>
+        </div>
+        {metrics.length > 1 && (
+          <div className="flex flex-wrap gap-1.5 bg-gray-50 p-1.5 rounded-xl border border-gray-200">
+            {metrics.map(m => (
+              <button
+                key={m}
+                onClick={() => setSelectedMetric(m)}
+                className={`px-3 py-1 text-xs font-bold rounded-lg transition-colors ${
+                  currentMetric === m ? 'bg-amber-800 text-white shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="grid md:grid-cols-3 gap-6">
+        <div className="md:col-span-2 bg-stone-50/60 rounded-2xl p-5 border border-gray-100 flex flex-col justify-between">
+          <div className="flex justify-between items-center mb-3">
+            <span className="text-xs font-bold text-gray-700 uppercase tracking-wider">{currentMetric} Progression</span>
+            <span className="text-xs text-gray-500 font-medium">{metricData.length} recorded {metricData.length === 1 ? 'period' : 'periods'}</span>
+          </div>
+
+          <div className="w-full">
+            <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-44 overflow-visible">
+              <defs>
+                <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#b45309" stopOpacity="0.25" />
+                  <stop offset="100%" stopColor="#b45309" stopOpacity="0.0" />
+                </linearGradient>
+              </defs>
+
+              <line x1={paddingX} y1={paddingY} x2={width - paddingX} y2={paddingY} stroke="#e5e7eb" strokeDasharray="3 3" />
+              <line x1={paddingX} y1={height / 2} x2={width - paddingX} y2={height / 2} stroke="#e5e7eb" strokeDasharray="3 3" />
+              <line x1={paddingX} y1={height - paddingY} x2={width - paddingX} y2={height - paddingY} stroke="#e5e7eb" />
+
+              {areaD && <path d={areaD} fill="url(#chartGradient)" />}
+              {pathD && <path d={pathD} fill="none" stroke="#b45309" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />}
+
+              {points.map((p, idx) => (
+                <g key={idx}>
+                  <circle cx={p.x} cy={p.y} r="5" fill="#ffffff" stroke="#b45309" strokeWidth="2.5" />
+                  <text x={p.x} y={p.y - 10} textAnchor="middle" fontSize="11" fontWeight="bold" fill="#1f2937">
+                    {p.val.toLocaleString('en-IN')}
+                  </text>
+                  <text x={p.x} y={height - 10} textAnchor="middle" fontSize="10" fontWeight="600" fill="#6b7280">
+                    {p.period}
+                  </text>
+                </g>
+              ))}
+            </svg>
+          </div>
+        </div>
+
+        <div className="bg-stone-50/60 rounded-2xl p-5 border border-gray-100 flex flex-col justify-between">
+          <div className="mb-3">
+            <span className="text-xs font-bold text-gray-700 uppercase tracking-wider block">Channel Distribution</span>
+            <span className="text-xs text-gray-400">Total: {totalSourceVal.toLocaleString('en-IN')}</span>
+          </div>
+
+          <div className="space-y-3.5 my-auto">
+            {Object.entries(sourceBreakdown).map(([src, val], i) => {
+              const pct = Math.round((val / totalSourceVal) * 100);
+              return (
+                <div key={src} className="space-y-1">
+                  <div className="flex justify-between text-xs font-medium">
+                    <span className="text-gray-700">{src}</span>
+                    <span className="font-bold text-gray-900">{val.toLocaleString('en-IN')} ({pct}%)</span>
+                  </div>
+                  <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${i % 3 === 0 ? 'bg-amber-600' : i % 3 === 1 ? 'bg-indigo-600' : 'bg-emerald-600'}`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ProjectWorkspace() {
   const { id } = useParams();
   const { user } = useAuth();
@@ -32,9 +216,12 @@ export default function ProjectWorkspace() {
 
   // Report states
   const [newReportPeriod, setNewReportPeriod] = useState('Week 1');
-  const [newReportMetric, setNewReportMetric] = useState('Views');
+  const [newReportMetric, setNewReportMetric] = useState('Sales');
   const [newReportValue, setNewReportValue] = useState('');
-  const [newReportNotes, setNewReportNotes] = useState('');
+  const [newReportUnit, setNewReportUnit] = useState('Units');
+  const [newReportCategory, setNewReportCategory] = useState('Marketplace');
+  const [newReportSource, setNewReportSource] = useState('Amazon');
+  const [newReportDesc, setNewReportDesc] = useState('');
   const [submittingReport, setSubmittingReport] = useState(false);
 
   // Ticket states
@@ -186,15 +373,27 @@ export default function ProjectWorkspace() {
     if (!newReportValue) return;
     try {
       setSubmittingReport(true);
+      const notesPayload = JSON.stringify({
+        description: (newReportDesc || '').trim(),
+        source: (newReportSource || 'Bharat Bazaar').trim(),
+        category: newReportCategory || 'Marketplace',
+        unit: newReportUnit || '',
+        date: new Date().toISOString(),
+      });
+      const formattedValue = newReportUnit && !newReportValue.includes(newReportUnit)
+        ? `${newReportValue.trim()} ${newReportUnit}`.trim()
+        : newReportValue.trim();
+
       const res = await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/projects/${id}/reports`, {
         period: newReportPeriod,
         metric: newReportMetric,
-        value: newReportValue,
-        notes: newReportNotes,
+        value: formattedValue,
+        notes: notesPayload,
       });
       setReports([res.data, ...reports]);
       setNewReportValue('');
-      setNewReportNotes('');
+      setNewReportDesc('');
+      setNewReportSource('');
     } catch (err) {
       alert(err.response?.data?.error || 'Failed to submit report');
     } finally {
@@ -236,7 +435,7 @@ export default function ProjectWorkspace() {
         </button>
         {project.contract && (
           <button
-            onClick={() => navigate(`/contracts/${project.contract.id}`)}
+            onClick={() => navigate(`/contracts/${project.contract.id}`, { state: { projectId: id } })}
             className="text-sm font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
           >
             View Partnership Agreement &rarr;
@@ -414,7 +613,7 @@ export default function ProjectWorkspace() {
             {/* Quick Actions (Right aligned on desktop) */}
             <div className="flex flex-col gap-3 min-w-[200px] w-full md:w-auto">
               {project?.contract?.id && (
-                <button onClick={() => navigate(`/contracts/${project.contract.id}`)} className="flex items-center justify-between px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 font-semibold transition-colors">
+                <button onClick={() => navigate(`/contracts/${project.contract.id}`, { state: { projectId: id } })} className="flex items-center justify-between px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 font-semibold transition-colors">
                   <span>View Contract</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
@@ -635,118 +834,268 @@ export default function ProjectWorkspace() {
       {activeTab === 'ANALYTICS' && (
         <div className="flex-1 p-6 overflow-y-auto bg-gray-50 min-h-[400px] space-y-8">
 
-          <div className="flex items-center gap-2 mb-2">
-            <BarChart2 className="w-6 h-6 text-amber-600" />
-            <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight">Business Analytics</h2>
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <div className="flex items-center gap-2">
+              <BarChart2 className="w-6 h-6 text-amber-600" />
+              <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight">{user.role === 'ARTISAN' ? 'Business Performance' : 'Client Performance'}</h2>
+            </div>
           </div>
 
-          {!analytics ? (
-            <div className="text-center py-12 text-gray-500 bg-white rounded-2xl shadow-sm border border-gray-100">
-              Loading analytics data...
-            </div>
-          ) : (
-            <div className="space-y-6">
-
-              {/* KEY METRICS */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {user.role === 'ARTISAN' ? (
-                  <>
-                    <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col">
-                      <span className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-2">Total Products</span>
-                      <span className="text-3xl font-extrabold text-gray-900 mt-auto">{analytics.totalProducts ?? 0}</span>
-                    </div>
-                    <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col">
-                      <span className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-2">Store Views</span>
-                      <span className="text-3xl font-extrabold text-gray-900 mt-auto">{analytics.totalViews ?? 0}</span>
-                    </div>
-                    <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col">
-                      <span className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-2">Orders</span>
-                      <span className="text-3xl font-extrabold text-gray-900 mt-auto">{analytics.totalOrders ?? 0}</span>
-                    </div>
-                    <div className="bg-gradient-to-br from-green-50 to-green-100 p-5 rounded-2xl shadow-sm border border-green-200 flex flex-col">
-                      <span className="text-green-800 text-xs font-bold uppercase tracking-wider mb-2">Revenue</span>
-                      <span className="text-3xl font-extrabold text-green-900 mt-auto">₹{analytics.totalRevenue ?? 0}</span>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col">
-                      <span className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-2">Client Products</span>
-                      <span className="text-3xl font-extrabold text-gray-900 mt-auto">{analytics.totalProducts ?? 0}</span>
-                    </div>
-                    <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col">
-                      <span className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-2">Client Views</span>
-                      <span className="text-3xl font-extrabold text-gray-900 mt-auto">{analytics.totalViews ?? 0}</span>
-                    </div>
-                    <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col">
-                      <span className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-2">Client Orders</span>
-                      <span className="text-3xl font-extrabold text-gray-900 mt-auto">{analytics.totalOrders ?? 0}</span>
-                    </div>
-                    <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 p-5 rounded-2xl shadow-sm border border-indigo-200 flex flex-col">
-                      <span className="text-indigo-800 text-xs font-bold uppercase tracking-wider mb-2">Tasks Completed</span>
-                      <span className="text-3xl font-extrabold text-indigo-900 mt-auto">{analytics.tasksCompleted ?? 0} <span className="text-lg text-indigo-700">/ {analytics.tasksTotal ?? 0}</span></span>
-                    </div>
-                  </>
-                )}
-              </div>
-
-              {/* GRID for Trend & Performance */}
-              <div className="grid lg:grid-cols-2 gap-6">
-
-                {/* PERFORMANCE TREND EMPTY STATE */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col">
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="font-bold text-gray-900 text-lg flex items-center gap-2">
-                      <TrendingUp className="w-5 h-5 text-blue-600" />
-                      Performance Trend
-                    </h3>
+          {/* PLATFORM METRICS */}
+          {analytics && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {user.role === 'ARTISAN' ? (
+                <>
+                  <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col">
+                    <span className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-2">Total Products</span>
+                    <span className="text-3xl font-extrabold text-gray-900 mt-auto">{analytics.totalProducts ?? 0}</span>
                   </div>
-                  <div className="flex-1 flex flex-col items-center justify-center text-center p-8 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50/50">
-                    <BarChart2 className="w-12 h-12 text-gray-300 mb-3" />
-                    <h4 className="text-sm font-bold text-gray-700 mb-1">Historical data required</h4>
-                    <p className="text-xs text-gray-500 max-w-[250px] mx-auto">Historical trend data will appear as more customer activity is collected.</p>
+                  <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col">
+                    <span className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-2">Store Views</span>
+                    <span className="text-3xl font-extrabold text-gray-900 mt-auto">{analytics.totalViews ?? 0}</span>
                   </div>
-                </div>
-
-                {/* PRODUCT PERFORMANCE EMPTY STATE */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col">
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="font-bold text-gray-900 text-lg flex items-center gap-2">
-                      <Package className="w-5 h-5 text-amber-600" />
-                      Product Performance
-                    </h3>
+                  <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col">
+                    <span className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-2">Orders</span>
+                    <span className="text-3xl font-extrabold text-gray-900 mt-auto">{analytics.totalOrders ?? 0}</span>
                   </div>
-                  <div className="flex-1 flex flex-col items-center justify-center text-center p-8 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50/50">
-                    <Target className="w-12 h-12 text-gray-300 mb-3" />
-                    <h4 className="text-sm font-bold text-gray-700 mb-1">No product-level analytics</h4>
-                    <p className="text-xs text-gray-500 max-w-[250px] mx-auto">Product ranking and item-specific analytics are not available yet.</p>
+                  <div className="bg-gradient-to-br from-green-50 to-green-100 p-5 rounded-2xl shadow-sm border border-green-200 flex flex-col">
+                    <span className="text-green-800 text-xs font-bold uppercase tracking-wider mb-2">Revenue</span>
+                    <span className="text-3xl font-extrabold text-green-900 mt-auto">₹{analytics.totalRevenue ?? 0}</span>
                   </div>
-                </div>
-
-              </div>
-
-              {/* GROWTH / ACTIVITY (Reports) */}
-              {reports && reports.length > 0 && (
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                  <div className="flex items-center gap-2 mb-4">
-                    <FileText className="w-5 h-5 text-indigo-600" />
-                    <h3 className="font-bold text-gray-900 text-lg">Growth Reports & Activity</h3>
+                </>
+              ) : (
+                <>
+                  <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col">
+                    <span className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-2">Client Products</span>
+                    <span className="text-3xl font-extrabold text-gray-900 mt-auto">{analytics.totalProducts ?? 0}</span>
                   </div>
-                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {reports.slice(0, 3).map((report, idx) => (
-                      <div key={idx} className="p-4 bg-gray-50 rounded-xl border border-gray-100 hover:shadow-md transition-shadow">
-                        <span className="text-xs font-bold text-gray-500 block mb-1">{report.period}</span>
-                        <div className="font-bold text-indigo-900">{report.metric}: <span className="text-indigo-700">{report.value}</span></div>
-                        {report.notes && <p className="text-xs text-gray-600 mt-2 line-clamp-2">{report.notes}</p>}
-                        <span className="text-[10px] text-gray-400 mt-3 block">{new Date(report.createdAt).toLocaleDateString()}</span>
-                      </div>
-                    ))}
+                  <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col">
+                    <span className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-2">Client Views</span>
+                    <span className="text-3xl font-extrabold text-gray-900 mt-auto">{analytics.totalViews ?? 0}</span>
                   </div>
-                </div>
+                  <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex flex-col">
+                    <span className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-2">Client Orders</span>
+                    <span className="text-3xl font-extrabold text-gray-900 mt-auto">{analytics.totalOrders ?? 0}</span>
+                  </div>
+                  <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 p-5 rounded-2xl shadow-sm border border-indigo-200 flex flex-col">
+                    <span className="text-indigo-800 text-xs font-bold uppercase tracking-wider mb-2">Tasks Completed</span>
+                    <span className="text-3xl font-extrabold text-indigo-900 mt-auto">{analytics.tasksCompleted ?? 0} <span className="text-lg text-indigo-700">/ {analytics.tasksTotal ?? 0}</span></span>
+                  </div>
+                </>
               )}
-
             </div>
           )}
+
+          {/* GROWTH INSIGHTS — derived from existing report data */}
+          {reports && reports.length >= 2 && (() => {
+            const numericReports = reports.filter(r => {
+              const rawNum = String(r.value || '').replace(/[^0-9.-]+/g, '');
+              return !isNaN(parseFloat(rawNum));
+            });
+            const metricGroups = {};
+            numericReports.forEach(r => {
+              if (!metricGroups[r.metric]) metricGroups[r.metric] = [];
+              const rawNum = parseFloat(String(r.value).replace(/[^0-9.-]+/g, ''));
+              metricGroups[r.metric].push({ value: rawNum, date: new Date(r.createdAt), period: r.period });
+            });
+
+            const insights = [];
+            Object.entries(metricGroups).forEach(([metric, entries]) => {
+              if (entries.length >= 2) {
+                const sorted = [...entries].sort((a, b) => a.date - b.date);
+                const latest = sorted[sorted.length - 1];
+                const previous = sorted[sorted.length - 2];
+                const change = ((latest.value - previous.value) / (previous.value || 1) * 100).toFixed(0);
+                if (change > 0) {
+                  insights.push({ text: `${metric} increased ${change}% from ${previous.period} to ${latest.period}.`, type: 'positive' });
+                } else if (change < 0) {
+                  insights.push({ text: `${metric} decreased ${Math.abs(change)}% from ${previous.period} to ${latest.period}.`, type: 'negative' });
+                } else {
+                  insights.push({ text: `${metric} remained steady between ${previous.period} and ${latest.period}.`, type: 'neutral' });
+                }
+              }
+            });
+
+            const topMetric = Object.entries(metricGroups)
+              .filter(([, entries]) => entries.length > 0)
+              .sort((a, b) => b[1][b[1].length - 1].value - a[1][a[1].length - 1].value)[0];
+
+            if (topMetric) {
+              insights.push({ text: `${topMetric[0]} recorded highest peak level with ${topMetric[1][topMetric[1].length - 1].value.toLocaleString('en-IN')}.`, type: 'info' });
+            }
+
+            return insights.length > 0 ? (
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <TrendingUp className="w-5 h-5 text-green-600" />
+                  <h3 className="font-bold text-gray-900 text-lg">Growth Insights & Signals</h3>
+                </div>
+                <div className="space-y-3">
+                  {insights.map((insight, idx) => (
+                    <div key={idx} className={`flex items-start gap-3 p-3.5 rounded-xl border text-sm ${
+                      insight.type === 'positive' ? 'bg-green-50/80 border-green-200 text-green-800' :
+                      insight.type === 'negative' ? 'bg-red-50/80 border-red-200 text-red-800' :
+                      insight.type === 'info' ? 'bg-blue-50/80 border-blue-200 text-blue-800' :
+                      'bg-gray-50 border-gray-100 text-gray-700'
+                    }`}>
+                      <span className="shrink-0 mt-0.5">{insight.type === 'positive' ? '📈' : insight.type === 'negative' ? '📉' : '💡'}</span>
+                      <span className="font-medium">{insight.text}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null;
+          })()}
+
+          {/* VISUALIZATION CHARTS — Line Trend & Channel Breakdown */}
+          {reports && reports.length > 0 && (
+            <PerformanceCharts reports={reports} />
+          )}
+
+          {/* PERFORMANCE ENTRY — Growth Manager only */}
+          {user.role === 'INTERN' && (
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+              <div className="flex items-center gap-2 mb-6">
+                <Target className="w-5 h-5 text-amber-600" />
+                <h3 className="font-bold text-gray-900 text-lg">Add Business Performance Data</h3>
+              </div>
+              <form onSubmit={handleCreateReport} className="space-y-4">
+                <div className="grid sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Metric Type</label>
+                    <select value={newReportMetric} onChange={e => setNewReportMetric(e.target.value)}
+                      className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-700">
+                      <option>Sales</option>
+                      <option>Revenue</option>
+                      <option>Orders</option>
+                      <option>Product Views</option>
+                      <option>Website Visits</option>
+                      <option>Social Reach</option>
+                      <option>Social Followers</option>
+                      <option>Engagement</option>
+                      <option>Leads</option>
+                      <option>Customers</option>
+                      <option>Conversion Rate</option>
+                      <option>Cart Additions</option>
+                      <option>Marketplace Orders</option>
+                      <option>Offline Sales</option>
+                      <option>Other</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Value</label>
+                    <input type="text" value={newReportValue} onChange={e => setNewReportValue(e.target.value)}
+                      placeholder="e.g. 300, 42000, 12500"
+                      required
+                      className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-700" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Unit</label>
+                    <select value={newReportUnit} onChange={e => setNewReportUnit(e.target.value)}
+                      className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-700">
+                      <option>Units</option>
+                      <option>₹</option>
+                      <option>Orders</option>
+                      <option>Views</option>
+                      <option>Followers</option>
+                      <option>Reach</option>
+                      <option>%</option>
+                      <option>Visits</option>
+                      <option>Leads</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Period</label>
+                    <select value={newReportPeriod} onChange={e => setNewReportPeriod(e.target.value)}
+                      className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-700">
+                      {['Week 1','Week 2','Week 3','Week 4','Month 1','Month 2','Month 3','Month 4','Month 5','Month 6','Q1','Q2','Q3','Q4'].map(p => <option key={p}>{p}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Category</label>
+                    <select value={newReportCategory} onChange={e => setNewReportCategory(e.target.value)}
+                      className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-700">
+                      <option>Marketplace</option>
+                      <option>Social Media</option>
+                      <option>Offline Store</option>
+                      <option>Website</option>
+                      <option>Marketing</option>
+                      <option>Other</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Source / Channel</label>
+                    <input type="text" value={newReportSource} onChange={e => setNewReportSource(e.target.value)}
+                      placeholder="e.g. Amazon, Instagram, Local Market"
+                      className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-700" />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 uppercase mb-1">Description / Action & Result</label>
+                  <textarea value={newReportDesc} onChange={e => setNewReportDesc(e.target.value)}
+                    placeholder="Describe what you executed and what the business result was..."
+                    rows={3}
+                    className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-700 resize-none" />
+                </div>
+                <button type="submit" disabled={submittingReport || !newReportValue}
+                  className="px-6 py-3 bg-amber-700 text-white font-bold rounded-xl text-sm hover:bg-amber-800 transition-colors shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
+                  {submittingReport ? 'Saving...' : 'Save Performance Data'}
+                </button>
+              </form>
+            </div>
+          )}
+
+          {/* PERFORMANCE TIMELINE */}
+          {reports && reports.length > 0 ? (
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+              <div className="flex items-center gap-2 mb-6">
+                <FileText className="w-5 h-5 text-indigo-600" />
+                <h3 className="font-bold text-gray-900 text-lg">{user.role === 'ARTISAN' ? 'Growth Manager Updates' : 'Performance Timeline'}</h3>
+              </div>
+              <div className="space-y-4">
+                {reports.map((report, idx) => {
+                  const parsed = parseReportNotes(report.notes);
+                  return (
+                    <div key={idx} className="relative pl-6 pb-4 border-l-2 border-gray-200 last:pb-0">
+                      <div className="absolute w-3 h-3 bg-indigo-500 rounded-full -left-[7px] top-1"></div>
+                      <div className="bg-gray-50/70 p-4 rounded-xl border border-gray-100 hover:border-gray-200 transition-colors">
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                          <span className="px-2 py-0.5 bg-indigo-100 text-indigo-800 text-[10px] font-bold rounded uppercase">{report.period}</span>
+                          <span className="text-sm font-bold text-gray-900">{report.metric}</span>
+                          {parsed.category && <span className="px-2 py-0.5 bg-gray-200 text-gray-700 text-[10px] font-bold rounded uppercase">{parsed.category}</span>}
+                          {parsed.source && <span className="px-2 py-0.5 bg-amber-100 text-amber-800 text-[10px] font-bold rounded">{parsed.source}</span>}
+                        </div>
+                        <div className="text-2xl font-extrabold text-gray-900 mb-1">{report.value}</div>
+                        {parsed.description && <p className="text-sm text-gray-600 leading-relaxed">{parsed.description}</p>}
+                        <span className="text-[10px] text-gray-400 mt-2 block">{new Date(report.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center">
+              <BarChart2 className="w-14 h-14 text-gray-200 mx-auto mb-4" />
+              <h3 className="text-lg font-bold text-gray-900 mb-2">Build your growth story</h3>
+              <p className="text-sm text-gray-500 max-w-md mx-auto mb-4">
+                {user.role === 'ARTISAN'
+                  ? 'Your Growth Manager can add performance updates here — sales, revenue, reach, orders and more. They will appear as a clear timeline with growth insights.'
+                  : 'Start recording the business signals that matter. Add sales, revenue, reach, orders or campaign results and Bharat Bazaar will turn them into clear growth insights.'}
+              </p>
+              {user.role === 'INTERN' && (
+                <p className="text-xs text-gray-400">Use the "Add Business Performance Data" form above to begin.</p>
+              )}
+            </div>
+          )}
+
+          {/* INSIGHTS CTA for reports with insufficient data */}
+          {reports && reports.length === 1 && (
+            <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 text-sm text-blue-800 text-center">
+              Add at least 2 performance records to start seeing growth trends and insights.
+            </div>
+          )}
+
         </div>
       )}
 
@@ -796,7 +1145,7 @@ export default function ProjectWorkspace() {
               <h3 className="text-lg font-bold text-gray-900 mb-2">No tasks have been added yet</h3>
               <p className="text-gray-500 text-sm max-w-sm mx-auto">Your partnership plan will appear here once deliverables and tasks are defined.</p>
               {user.role === 'INTERN' && contractDetails?.id && (
-                <button onClick={() => navigate(`/contracts/${contractDetails.id}`)} className="mt-6 px-6 py-2 bg-indigo-600 hover:bg-indigo-700 transition text-white rounded-xl font-bold">
+                <button onClick={() => navigate(`/contracts/${contractDetails.id}`, { state: { projectId: id } })} className="mt-6 px-6 py-2 bg-indigo-600 hover:bg-indigo-700 transition text-white rounded-xl font-bold">
                   Manage Tasks
                 </button>
               )}
@@ -1019,12 +1368,21 @@ export default function ProjectWorkspace() {
                       )}
 
                       <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <span className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-gray-100 text-gray-600 uppercase tracking-wider">{report.period}</span>
-                          {idx === 0 && <span className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-indigo-100 text-indigo-700 uppercase tracking-wider">Latest Report</span>}
-                        </div>
-                        <h4 className="text-xl font-extrabold text-gray-900 mb-1">{report.metric}: <span className="text-indigo-600">{report.value}</span></h4>
-                        {report.notes && <p className="text-sm text-gray-600 mt-2">{report.notes}</p>}
+                        {(() => {
+                          const parsed = parseReportNotes(report.notes);
+                          return (
+                            <>
+                              <div className="flex flex-wrap items-center gap-2 mb-2">
+                                <span className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-gray-100 text-gray-600 uppercase tracking-wider">{report.period}</span>
+                                {idx === 0 && <span className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-indigo-100 text-indigo-700 uppercase tracking-wider">Latest Report</span>}
+                                {parsed.category && <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-gray-200 text-gray-700 uppercase tracking-wider">{parsed.category}</span>}
+                                {parsed.source && <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-800 uppercase tracking-wider">{parsed.source}</span>}
+                              </div>
+                              <h4 className="text-xl font-extrabold text-gray-900 mb-1">{report.metric}: <span className="text-indigo-600">{report.value}</span></h4>
+                              {parsed.description && <p className="text-sm text-gray-600 mt-2 leading-relaxed">{parsed.description}</p>}
+                            </>
+                          );
+                        })()}
                       </div>
 
                       <div className="text-left md:text-right w-full md:w-auto pt-4 md:pt-0 border-t md:border-t-0 border-gray-100">

@@ -66,6 +66,25 @@ const getProjectById = async (req, res) => {
       return res.status(403).json({ error: 'Unauthorized to view this project' });
     }
 
+    if (!project.contract) {
+      const linkedContract = await prisma.contract.findFirst({
+        where: {
+          OR: [
+            { requestId: project.requestId },
+            { artisanId: project.artisanId, internId: project.internId }
+          ]
+        },
+        orderBy: { createdAt: 'desc' }
+      });
+      if (linkedContract) {
+        await prisma.contract.update({
+          where: { id: linkedContract.id },
+          data: { projectId: project.id }
+        });
+        project.contract = { id: linkedContract.id };
+      }
+    }
+
     res.json(project);
   } catch (error) {
     console.error('Get project error:', error);

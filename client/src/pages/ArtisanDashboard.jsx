@@ -271,27 +271,51 @@ export default function ArtisanDashboard() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {contracts.map((contract) => (
-              <Link
-                key={contract.id}
-                to={`/contracts/${contract.id}`}
-                className="p-4 border border-gray-100 rounded-2xl bg-gray-50/50 hover:bg-white hover:shadow-md transition-all block space-y-2"
-              >
-                <div className="flex justify-between items-start">
-                  <span className="text-xs font-bold text-gray-900">{contract.title}</span>
-                  <span className="px-2 py-0.5 bg-amber-100 text-amber-900 text-[10px] font-extrabold rounded-full">
-                    {contract.status}
-                  </span>
+            {contracts.map((contract) => {
+              const targetProjectId = contract.projectId || contract.project?.id;
+              return (
+                <div
+                  key={contract.id}
+                  className="p-5 border border-gray-100 rounded-2xl bg-gray-50/50 hover:bg-white hover:shadow-md transition-all flex flex-col justify-between space-y-3"
+                >
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-start">
+                      <span className="text-sm font-bold text-gray-900">{contract.title}</span>
+                      <span className={`px-2 py-0.5 text-[10px] font-extrabold rounded-full ${
+                        contract.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-900'
+                      }`}>
+                        {contract.status}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      Growth Partner: <span className="font-semibold text-gray-700">{contract.intern?.user?.name}</span>
+                    </p>
+                    <div className="flex justify-between text-[11px] text-gray-400 pt-1">
+                      <span>Tier: {contract.tier}</span>
+                      <span>{contract.tasks?.filter((t) => t.isCompleted).length || 0} Deliverables Done</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
+                    {targetProjectId && (
+                      <Link
+                        to={`/projects/${targetProjectId}`}
+                        className="flex-1 text-center py-2 px-3 bg-amber-700 text-white rounded-xl text-xs font-bold hover:bg-amber-800 transition-colors shadow-sm"
+                      >
+                        Open Workspace &rarr;
+                      </Link>
+                    )}
+                    <Link
+                      to={`/contracts/${contract.id}`}
+                      state={{ projectId: targetProjectId }}
+                      className="py-2 px-3 bg-white border border-gray-200 text-gray-700 rounded-xl text-xs font-semibold hover:bg-gray-50 transition-colors text-center"
+                    >
+                      Agreement
+                    </Link>
+                  </div>
                 </div>
-                <p className="text-xs text-gray-500">
-                  Manager: <span className="font-semibold text-gray-700">{contract.intern?.user?.name}</span>
-                </p>
-                <div className="flex justify-between text-[11px] text-gray-400 pt-2 border-t border-gray-100">
-                  <span>Tier: {contract.tier}</span>
-                  <span>{contract.tasks?.filter((t) => t.isCompleted).length || 0} Tasks Done</span>
-                </div>
-              </Link>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

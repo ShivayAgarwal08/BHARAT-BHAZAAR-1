@@ -6,14 +6,29 @@ const register = async (req, res) => {
   const { name, phone, email, password, role, ...roleData } = req.body;
 
   try {
-    const existingUser = await prisma.user.findUnique({ where: { phone } });
+    const cleanPhone = phone ? phone.trim().replace(/\s+/g, '') : '';
+    const cleanEmail = email?.trim().toLowerCase() || null;
+
+    if (!cleanPhone || !password) {
+      return res.status(400).json({ error: 'Phone number and password are required' });
+    }
+
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { phone: cleanPhone },
+          { phone: phone.trim() }
+        ]
+      }
+    });
     if (existingUser) {
       return res.status(400).json({ error: 'User with this phone number already exists' });
     }
 
-    const cleanEmail = email?.trim() || null;
     if (cleanEmail) {
-      const existingEmail = await prisma.user.findUnique({ where: { email: cleanEmail } });
+      const existingEmail = await prisma.user.findFirst({
+        where: { email: { equals: cleanEmail, mode: 'insensitive' } }
+      });
       if (existingEmail) {
         return res.status(400).json({ error: 'An account with this email already exists.' });
       }
@@ -23,8 +38,8 @@ const register = async (req, res) => {
 
     const user = await prisma.user.create({
       data: {
-        name,
-        phone,
+        name: name ? name.trim() : '',
+        phone: cleanPhone,
         email: cleanEmail,
         password: hashedPassword,
         role: role || 'ARTISAN', // Default to ARTISAN if not provided
@@ -76,21 +91,44 @@ const register = async (req, res) => {
 };
 
 const login = async (req, res) => {
-  const { phone, password } = req.body;
+  const { phone, email, password, identifier } = req.body;
 
   try {
-    if (!phone || !password) {
-      return res.status(400).json({ error: 'Phone and password are required' });
+    const rawInput = (phone || email || identifier || '').trim();
+    if (!rawInput || !password) {
+      return res.status(400).json({ error: 'Phone number or email and password are required', code: 'MISSING_FIELDS' });
     }
 
-    const user = await prisma.user.findUnique({ where: { phone } });
+    const isEmail = rawInput.includes('@');
+    let user = null;
+
+    if (isEmail) {
+      user = await prisma.user.findFirst({
+        where: { email: { equals: rawInput.toLowerCase(), mode: 'insensitive' } }
+      });
+    } else {
+      const cleanPhone = rawInput.replace(/\s+/g, '');
+      const barePhone = cleanPhone.replace(/^\+91/, '');
+      user = await prisma.user.findFirst({
+        where: {
+          OR: [
+            { phone: rawInput },
+            { phone: cleanPhone },
+            { phone: barePhone },
+            { phone: `+91${barePhone}` },
+            { email: { equals: rawInput.toLowerCase(), mode: 'insensitive' } }
+          ]
+        }
+      });
+    }
+
     if (!user) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ error: 'Invalid phone number or password', code: 'INVALID_CREDENTIALS' });
     }
 
     const isValid = await bcrypt.compare(password, user.password);
     if (!isValid) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ error: 'Invalid phone number or password', code: 'INVALID_CREDENTIALS' });
     }
 
     const token = jwt.sign(
@@ -102,7 +140,7 @@ const login = async (req, res) => {
     res.json({ token, user: { id: user.id, name: user.name, role: user.role } });
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: 'Server error. Please try again in a moment.', code: 'SERVER_ERROR' });
   }
 };
 
