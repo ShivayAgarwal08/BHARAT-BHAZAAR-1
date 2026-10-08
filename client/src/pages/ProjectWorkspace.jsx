@@ -3,7 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { io } from 'socket.io-client';
 import { useAuth } from '../context/AuthContext';
-import { MessageSquare, BarChart, LifeBuoy, FileText, BarChart2, TrendingUp, Calendar, Clock, Target, CheckCircle, ArrowRight, Package, LayoutDashboard, ClipboardList } from 'lucide-react';
+import {
+  MessageSquare, BarChart, LifeBuoy, FileText, BarChart2, TrendingUp, Calendar,
+  Clock, Target, CheckCircle, ArrowRight, Package, LayoutDashboard, ClipboardList,
+  Plus, AlertCircle, Shield, User, ArrowLeft, CheckCircle2, ChevronRight, X
+} from 'lucide-react';
 
 const parseReportNotes = (notes) => {
   if (!notes) return { description: '', source: '', category: 'Marketplace', unit: '' };
@@ -198,6 +202,7 @@ export default function ProjectWorkspace() {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
+  const [errorState, setErrorState] = useState(null); // 'ERROR' | 'UNAUTHORIZED' | 'NOT_FOUND' | null
 
   // Rating states
   const [ratingScore, setRatingScore] = useState(5);
@@ -213,6 +218,14 @@ export default function ProjectWorkspace() {
   const [activeTab, setActiveTab] = useState('OVERVIEW');
   const [contractDetails, setContractDetails] = useState(null);
   const [analytics, setAnalytics] = useState(null);
+
+  // New task creation states for Execution Plan
+  const [isAddingTask, setIsAddingTask] = useState(false);
+  const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [newTaskDesc, setNewTaskDesc] = useState('');
+  const [newTaskRole, setNewTaskRole] = useState('GROWTH_MANAGER');
+  const [newTaskDueDate, setNewTaskDueDate] = useState('');
+  const [savingTask, setSavingTask] = useState(false);
 
   // Report states
   const [newReportPeriod, setNewReportPeriod] = useState('Week 1');
@@ -249,58 +262,93 @@ export default function ProjectWorkspace() {
     }
   };
 
+  const handleCreateWorkspaceTask = async (e) => {
+    e.preventDefault();
+    if (!newTaskTitle.trim() || !contractDetails?.id) return;
+    try {
+      setSavingTask(true);
+      const res = await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/contracts/${contractDetails.id}/tasks`, {
+        title: newTaskTitle.trim(),
+        description: newTaskDesc.trim(),
+        assignedRole: newTaskRole,
+        dueDate: newTaskDueDate || null,
+      });
+
+      setContractDetails(prev => ({
+        ...prev,
+        tasks: [...(prev.tasks || []), res.data]
+      }));
+      setNewTaskTitle('');
+      setNewTaskDesc('');
+      setNewTaskDueDate('');
+      setIsAddingTask(false);
+    } catch (err) {
+      console.error('Failed to create task', err);
+      alert(err.response?.data?.error || 'Failed to add task to execution plan');
+    } finally {
+      setSavingTask(false);
+    }
+  };
+
+  const fetchProjectData = async () => {
+    try {
+      setLoading(true);
+      setErrorState(null);
+      const [projRes, msgRes, repRes, tickRes] = await Promise.all([
+        axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/projects/${id}`),
+        axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/projects/${id}/messages`),
+        axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/projects/${id}/reports`),
+        axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/projects/${id}/support`),
+      ]);
+
+      const projectData = projRes.data;
+      setProject(projectData);
+      setMessages(msgRes.data || []);
+      setReports(repRes.data || []);
+      setTickets(tickRes.data || []);
+
+      // Fetch contract details if available
+      if (projectData.contract?.id) {
+        try {
+          const contractRes = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/contracts/${projectData.contract.id}`);
+          setContractDetails(contractRes.data);
+        } catch (err) {
+          console.error('Failed to fetch contract details', err);
+        }
+      }
+
+      // Fetch analytics based on role
+      try {
+        if (user?.role === 'ARTISAN') {
+          const analyticsRes = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/analytics/artisan`);
+          setAnalytics(analyticsRes.data);
+        } else if (user?.role === 'INTERN' && projectData.artisan?.id) {
+          const analyticsRes = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/analytics/intern/client/${projectData.artisan.id}`);
+          setAnalytics(analyticsRes.data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch analytics', err);
+      }
+
+    } catch (err) {
+      console.error('Failed to load project', err);
+      if (err.response?.status === 403) {
+        setErrorState('UNAUTHORIZED');
+      } else if (err.response?.status === 404) {
+        setErrorState('NOT_FOUND');
+      } else {
+        setErrorState('ERROR');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!user) {
       navigate('/login');
       return;
     }
-
-    const fetchProjectData = async () => {
-      try {
-        const [projRes, msgRes, repRes, tickRes] = await Promise.all([  axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/projects/${id}`),
-          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/projects/${id}/messages`),
-          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/projects/${id}/reports`),
-          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/projects/${id}/support`),
-        ]);
-
-        const projectData = projRes.data;
-        setProject(projectData);
-        setMessages(msgRes.data);
-        setReports(repRes.data);
-        setTickets(tickRes.data);
-
-        // Fetch contract details if available
-        if (projectData.contract?.id) {
-          try {
-            const contractRes = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/contracts/${projectData.contract.id}`);
-            setContractDetails(contractRes.data);
-          } catch (err) {
-            console.error('Failed to fetch contract details', err);
-          }
-        }
-
-        // Fetch analytics based on role
-        try {
-          if (user.role === 'ARTISAN') {
-            const analyticsRes = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/analytics/artisan`);
-            setAnalytics(analyticsRes.data);
-          } else if (user.role === 'INTERN' && projectData.artisan?.userId) {
-            // Need artisan profile ID, but we only have artisan ID from project.
-            // Wait, projectData.artisan.id is the artisan profile ID.
-            const analyticsRes = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/analytics/intern/client/${projectData.artisan.id}`);
-            setAnalytics(analyticsRes.data);
-          }
-        } catch (err) {
-          console.error('Failed to fetch analytics', err);
-        }
-
-      } catch (err) {
-        console.error('Failed to load project', err);
-        navigate('/dashboard');
-      } finally {
-        setLoading(false);
-      }
-    };
 
     fetchProjectData();
 
@@ -420,416 +468,753 @@ export default function ProjectWorkspace() {
     }
   };
 
-  if (loading) return <div className="text-center py-12">Loading workspace...</div>;
-  if (!project) return <div className="text-center py-12">Project not found</div>;
+  if (loading) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-24 text-center space-y-4">
+        <div className="w-12 h-12 border-4 border-amber-800 border-t-transparent rounded-full animate-spin mx-auto"></div>
+        <p className="text-gray-600 font-bold text-sm">Loading digital growth partnership...</p>
+      </div>
+    );
+  }
 
-  return (
-    <div className="max-w-6xl mx-auto px-4 pt-12 pb-8 flex flex-col md:flex-row gap-8 min-h-[calc(100vh-8rem)] relative">
-      {/* Top Navigation Links */}
-      <div className="absolute top-2 left-4 flex gap-4">
+  if (errorState === 'UNAUTHORIZED') {
+    return (
+      <div className="max-w-md mx-auto px-4 py-24 text-center space-y-4">
+        <div className="w-12 h-12 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center font-bold text-xl mx-auto">
+          <Shield className="w-6 h-6" />
+        </div>
+        <h2 className="text-xl font-extrabold text-gray-900">Access Restricted</h2>
+        <p className="text-sm text-gray-500">You do not have authorization to view this partnership.</p>
         <button
           onClick={() => navigate('/dashboard')}
-          className="text-sm font-semibold text-gray-600 hover:text-amber-800 flex items-center gap-1"
+          className="px-6 py-2.5 bg-amber-800 text-white font-bold rounded-xl text-sm hover:bg-amber-900 transition-colors shadow-sm inline-flex items-center gap-2"
         >
-          &larr; Back to Dashboard
+          <ArrowLeft className="w-4 h-4" /> Back to My Partnerships
         </button>
-        {project.contract && (
+      </div>
+    );
+  }
+
+  if (errorState === 'NOT_FOUND' || !project) {
+    return (
+      <div className="max-w-md mx-auto px-4 py-24 text-center space-y-4">
+        <div className="w-12 h-12 bg-amber-100 text-amber-800 rounded-2xl flex items-center justify-center font-bold text-xl mx-auto">
+          <AlertCircle className="w-6 h-6" />
+        </div>
+        <h2 className="text-xl font-extrabold text-gray-900">Partnership Not Found</h2>
+        <p className="text-sm text-gray-500">This partnership no longer exists or the link is invalid.</p>
+        <button
+          onClick={() => navigate('/dashboard')}
+          className="px-6 py-2.5 bg-amber-800 text-white font-bold rounded-xl text-sm hover:bg-amber-900 transition-colors shadow-sm inline-flex items-center gap-2"
+        >
+          <ArrowLeft className="w-4 h-4" /> Back to My Partnerships
+        </button>
+      </div>
+    );
+  }
+
+  if (errorState === 'ERROR') {
+    return (
+      <div className="max-w-md mx-auto px-4 py-24 text-center space-y-4">
+        <div className="w-12 h-12 bg-red-100 text-red-700 rounded-2xl flex items-center justify-center font-bold text-xl mx-auto">
+          !
+        </div>
+        <h2 className="text-xl font-extrabold text-gray-900">Unable to load this partnership</h2>
+        <p className="text-sm text-gray-500">There was a server issue retrieving the partnership records. Your data is safe.</p>
+        <div className="flex items-center justify-center gap-3">
+          <button
+            onClick={fetchProjectData}
+            className="px-6 py-2.5 bg-amber-800 text-white font-bold rounded-xl text-sm hover:bg-amber-900 transition-colors shadow-sm"
+          >
+            Retry
+          </button>
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="px-5 py-2.5 bg-gray-100 text-gray-700 font-bold rounded-xl text-sm hover:bg-gray-200 transition-colors inline-flex items-center gap-2"
+          >
+            <ArrowLeft className="w-4 h-4" /> Back to My Partnerships
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Meaningful health system derived from REAL data
+  const getPartnershipHealth = () => {
+    if (project.status === 'COMPLETED') {
+      return {
+        badge: 'COMPLETED',
+        color: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+        dot: 'bg-emerald-500',
+        summary: 'All partnership milestones finalized successfully.',
+      };
+    }
+    const tasks = contractDetails?.tasks || [];
+    const overdue = tasks.filter(t => !t.isCompleted && t.dueDate && new Date(t.dueDate) < new Date());
+    const completed = tasks.filter(t => t.isCompleted).length;
+    const total = tasks.length;
+
+    if (overdue.length >= 2) {
+      return {
+        badge: 'AT RISK',
+        color: 'bg-red-100 text-red-800 border-red-200',
+        dot: 'bg-red-500',
+        summary: `${overdue.length} milestones past deadline. Immediate review advised.`,
+      };
+    }
+    if (overdue.length === 1) {
+      return {
+        badge: 'NEEDS ATTENTION',
+        color: 'bg-amber-100 text-amber-800 border-amber-200',
+        dot: 'bg-amber-500',
+        summary: `1 milestone past deadline: "${overdue[0].title}".`,
+      };
+    }
+    if (total > 0 && completed === total) {
+      return {
+        badge: 'ON TRACK',
+        color: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+        dot: 'bg-emerald-500',
+        summary: `All ${total} planned execution tasks completed.`,
+      };
+    }
+    if (total > 0) {
+      return {
+        badge: 'ON TRACK',
+        color: 'bg-blue-100 text-blue-800 border-blue-200',
+        dot: 'bg-blue-500',
+        summary: `${completed} of ${total} planned tasks completed on schedule.`,
+      };
+    }
+    return {
+      badge: 'ON TRACK',
+      color: 'bg-gray-100 text-gray-800 border-gray-200',
+      dot: 'bg-gray-400',
+      summary: 'Partnership active and ready for milestone execution.',
+    };
+  };
+
+  const health = getPartnershipHealth();
+
+  const allTasks = contractDetails?.tasks || [];
+  const overdueTasks = allTasks.filter(t => !t.isCompleted && t.dueDate && new Date(t.dueDate) < new Date());
+  const inProgressTasks = allTasks.filter(t => !t.isCompleted && (!t.dueDate || new Date(t.dueDate) >= new Date()));
+  const completedTasks = allTasks.filter(t => t.isCompleted);
+
+  const currentFocusTasks = allTasks
+    .filter(t => !t.isCompleted)
+    .sort((a, b) => {
+      if (!a.dueDate) return 1;
+      if (!b.dueDate) return -1;
+      return new Date(a.dueDate) - new Date(b.dueDate);
+    })
+    .slice(0, 3);
+
+  const nextActionTask = currentFocusTasks[0] || null;
+
+  const artisanPendingTasks = allTasks.filter(t => !t.isCompleted && (t.assignedRole === 'ARTISAN' || t.assignedRole === 'SHARED'));
+
+  // Compiled real event timeline
+  const activityEvents = [];
+  if (reports && reports.length > 0) {
+    reports.forEach(r => {
+      const parsed = parseReportNotes(r.notes);
+      activityEvents.push({
+        id: `rep-${r.id}`,
+        type: 'report',
+        title: `Growth update recorded: ${r.value} ${r.metric}`,
+        subtitle: `${r.period} • ${parsed.source || 'Bharat Bazaar'}${parsed.description ? ` — "${parsed.description}"` : ''}`,
+        date: new Date(r.createdAt),
+      });
+    });
+  }
+  if (allTasks.length > 0) {
+    allTasks.forEach(t => {
+      if (t.isCompleted && t.completedAt) {
+        activityEvents.push({
+          id: `task-done-${t.id}`,
+          type: 'task_completed',
+          title: `Milestone completed: "${t.title}"`,
+          subtitle: `Assigned: ${t.assignedRole?.replace('_', ' ') || 'Team'}`,
+          date: new Date(t.completedAt),
+        });
+      }
+      if (t.createdAt) {
+        activityEvents.push({
+          id: `task-new-${t.id}`,
+          type: 'task_created',
+          title: `Milestone added: "${t.title}"`,
+          subtitle: t.dueDate ? `Due date: ${new Date(t.dueDate).toLocaleDateString('en-IN')}` : 'No due date',
+          date: new Date(t.createdAt),
+        });
+      }
+    });
+  }
+  if (contractDetails?.createdAt) {
+    activityEvents.push({
+      id: `contract-${contractDetails.id}`,
+      type: 'contract',
+      title: 'Partnership Agreement established',
+      subtitle: `Status: ${contractDetails.status || 'ACTIVE'} • Ref: ${contractDetails.id.slice(0, 8).toUpperCase()}`,
+      date: new Date(contractDetails.createdAt),
+    });
+  }
+  if (project.createdAt) {
+    activityEvents.push({
+      id: `proj-${project.id}`,
+      type: 'project',
+      title: 'Digital Growth Partnership launched',
+      subtitle: `${project.request?.category || 'Growth Engagement'} officially began`,
+      date: new Date(project.createdAt),
+    });
+  }
+  activityEvents.sort((a, b) => b.date - a.date);
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-16 space-y-6">
+      {/* Top Navigation Bar */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-2xl border border-gray-200/80 shadow-sm">
+        <button
+          onClick={() => navigate('/dashboard')}
+          className="text-xs font-bold text-gray-700 hover:text-amber-900 inline-flex items-center gap-1.5 transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4 text-gray-400" /> Back to My Partnerships
+        </button>
+        {project.contract?.id && (
           <button
             onClick={() => navigate(`/contracts/${project.contract.id}`, { state: { projectId: id } })}
-            className="text-sm font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+            className="text-xs font-bold text-amber-900 hover:text-amber-800 bg-amber-50 px-3.5 py-1.5 rounded-xl border border-amber-200 inline-flex items-center gap-1.5 transition-colors shadow-xs"
           >
-            View Partnership Agreement &rarr;
+            <FileText className="w-3.5 h-3.5" /> View Partnership Agreement &rarr;
           </button>
         )}
       </div>
 
-      {/* Sidebar: Project Info */}
-      <div className="md:w-1/3 flex flex-col gap-6">
-        <div className="card p-6">
-          <h2 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-2">Project Workspace</h2>
-          <h1 className="text-2xl font-extrabold text-text mb-4">{project.request.title}</h1>
-
-          <div className="space-y-3 text-sm border-t pt-4">
-            <div className="flex justify-between items-center pb-2 border-b border-gray-100">
-              <span className="text-gray-500">Partnership Health</span>
-              <span className={`px-2 py-1 rounded text-[10px] uppercase font-bold tracking-wider ${
-                project.status === 'COMPLETED' ? 'bg-green-100 text-green-700' :
-                contractDetails?.tasks?.some(t => !t.isCompleted && t.dueDate && new Date(t.dueDate) < new Date()) ? 'bg-red-100 text-red-700' :
-                project.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-700' :
-                'bg-gray-100 text-gray-700'
-              }`}>
-                {project.status === 'COMPLETED' ? 'COMPLETED' :
-                 contractDetails?.tasks?.some(t => !t.isCompleted && t.dueDate && new Date(t.dueDate) < new Date()) ? 'ATTENTION NEEDED' :
-                 project.status === 'IN_PROGRESS' ? 'ON TRACK' : project.status.replace('_', ' ')}
+      <div className="flex flex-col lg:flex-row gap-8">
+        {/* Sidebar: Project Info & Actions */}
+        <div className="lg:w-80 flex flex-col gap-6 shrink-0">
+          <div className="bg-white rounded-3xl p-6 border border-gray-200/80 shadow-sm space-y-5">
+            <div>
+              <span className="text-[10px] font-black uppercase tracking-widest text-amber-900/80 bg-amber-100/60 px-2.5 py-1 rounded-md inline-block mb-2">
+                Digital Growth Partnership
               </span>
+              <h1 className="text-xl font-black text-gray-900 leading-snug">{project.request.title}</h1>
             </div>
 
-            {user.role === 'ARTISAN' ? (
-              <div className="flex justify-between">
-                <span className="text-gray-500">Your Growth Manager</span>
-                <span className="font-semibold">{project.intern.user.name}</span>
+            <div className="space-y-3 text-xs border-t border-gray-100 pt-4">
+              <div className="flex justify-between items-center pb-2.5 border-b border-gray-50">
+                <span className="text-gray-500 font-medium">Health Status</span>
+                <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${health.color}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${health.dot}`}></span>
+                  {health.badge}
+                </span>
               </div>
-            ) : (
-              <div className="flex justify-between">
-                <span className="text-gray-500">Client / Business Owner</span>
-                <span className="font-semibold">{project.artisan.user.name}</span>
-              </div>
-            )}
 
-            <div className="flex justify-between">
-              <span className="text-gray-500">Category</span>
-              <span className="font-semibold">{project.request.category}</span>
+              {user.role === 'ARTISAN' ? (
+                <div className="flex justify-between items-start pb-2.5 border-b border-gray-50">
+                  <span className="text-gray-500 font-medium">Growth Manager</span>
+                  <div className="text-right">
+                    <p className="font-bold text-gray-900">{project.intern.user.name}</p>
+                    <p className="text-[10px] text-gray-400">{project.intern.college || 'Verified Partner'}</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex justify-between items-start pb-2.5 border-b border-gray-50">
+                  <span className="text-gray-500 font-medium">Client / Artisan</span>
+                  <div className="text-right">
+                    <p className="font-bold text-gray-900">{project.artisan.user.name}</p>
+                    <p className="text-[10px] text-gray-400">{project.artisan.location || 'India'}</p>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-between pb-2.5 border-b border-gray-50">
+                <span className="text-gray-500 font-medium">Category</span>
+                <span className="font-bold text-gray-900">{project.request.category}</span>
+              </div>
+
+              <div className="flex justify-between">
+                <span className="text-gray-500 font-medium">Duration</span>
+                <span className="font-bold text-gray-900">{contractDetails?.duration || '6 Months'}</span>
+              </div>
             </div>
           </div>
+
+          {/* Completion Action (Artisan Only) */}
+          {user.role === 'ARTISAN' && project.status === 'IN_PROGRESS' && (
+            <div className="bg-blue-50/70 border border-blue-200/80 rounded-3xl p-6 space-y-3">
+              <h3 className="font-bold text-blue-950 text-sm">Project Completion</h3>
+              <p className="text-xs text-blue-800 leading-relaxed">
+                When all milestone deliverables are satisfactorily completed by your Growth Manager, confirm completion here.
+              </p>
+              <button
+                onClick={handleCompleteProject}
+                className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition-colors shadow-sm"
+              >
+                Confirm Project Completion
+              </button>
+            </div>
+          )}
+
+          {/* Rating System (Artisan Only after completion) */}
+          {user.role === 'ARTISAN' && project.status === 'COMPLETED' && !project.rating && !ratingSubmitted && (
+            <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-3xl p-6 space-y-4">
+              <h3 className="font-bold text-emerald-950 text-sm">Rate Your Growth Manager</h3>
+              <form onSubmit={handleRateIntern} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-emerald-800 mb-2">Score (1-5)</label>
+                  <div className="flex gap-2">
+                    {[1, 2, 3, 4, 5].map((num) => (
+                      <button
+                        key={num}
+                        type="button"
+                        onClick={() => setRatingScore(num)}
+                        className={`w-9 h-9 rounded-xl font-bold transition-colors ${
+                          ratingScore >= num ? 'bg-emerald-600 text-white shadow-sm' : 'bg-emerald-200/60 text-emerald-800 hover:bg-emerald-200'
+                        }`}
+                      >
+                        ★
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-emerald-800 mb-1">Feedback</label>
+                  <textarea
+                    value={ratingReview}
+                    onChange={(e) => setRatingReview(e.target.value)}
+                    className="w-full p-2.5 rounded-xl border border-emerald-200 bg-white text-xs h-20 resize-none focus:outline-none focus:ring-2 focus:ring-emerald-600"
+                    placeholder="Share how the collaboration helped your business..."
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={isSubmittingRating}
+                  className="w-full py-2.5 bg-emerald-700 text-white font-bold rounded-xl text-xs hover:bg-emerald-800 transition shadow-sm"
+                >
+                  Submit Rating
+                </button>
+              </form>
+            </div>
+          )}
+
+          {(project.rating || ratingSubmitted) && user.role === 'ARTISAN' && (
+            <div className="bg-emerald-50/50 border border-emerald-100 rounded-3xl p-5 text-center text-emerald-800 space-y-1">
+              <span className="text-xl block">⭐</span>
+              <p className="text-xs font-bold">Feedback Recorded</p>
+              <p className="text-[11px] text-emerald-600">Thank you for rating your growth partner.</p>
+            </div>
+          )}
         </div>
 
-        {/* Completion Action (Artisan Only) */}
-        {user.role === 'ARTISAN' && project.status === 'IN_PROGRESS' && (
-          <div className="card p-6 bg-blue-50/50 border-blue-100">
-            <h3 className="font-bold text-blue-900 mb-2">Project Completion</h3>
-            <p className="text-sm text-blue-700 mb-4">When the Growth Manager finishes their work, confirm completion here.</p>
-            <button onClick={handleCompleteProject} className="btn-primary w-full py-2 bg-blue-600 hover:bg-blue-700 border-none">
-              Confirm Project Completion
+        {/* Main Area: Navigation Tabs & Tab Content */}
+        <div className="flex-1 min-w-0 bg-white rounded-3xl border border-gray-200/80 shadow-sm overflow-hidden flex flex-col">
+          <div className="flex border-b border-gray-200/80 bg-gray-50/50 px-4 overflow-x-auto scrollbar-none">
+            <button
+              onClick={() => setActiveTab('OVERVIEW')}
+              className={`px-5 py-4 text-xs font-black uppercase tracking-wider flex items-center gap-2 shrink-0 transition-colors border-b-2 ${
+                activeTab === 'OVERVIEW'
+                  ? 'border-amber-800 text-amber-900 bg-white'
+                  : 'border-transparent text-gray-500 hover:text-gray-900'
+              }`}
+            >
+              <LayoutDashboard className="w-4 h-4" /> Overview
+            </button>
+            <button
+              onClick={() => setActiveTab('PLAN')}
+              className={`px-5 py-4 text-xs font-black uppercase tracking-wider flex items-center gap-2 shrink-0 transition-colors border-b-2 ${
+                activeTab === 'PLAN'
+                  ? 'border-amber-800 text-amber-900 bg-white'
+                  : 'border-transparent text-gray-500 hover:text-gray-900'
+              }`}
+            >
+              <ClipboardList className="w-4 h-4" /> Execution Plan
+            </button>
+            <button
+              onClick={() => setActiveTab('ANALYTICS')}
+              className={`px-5 py-4 text-xs font-black uppercase tracking-wider flex items-center gap-2 shrink-0 transition-colors border-b-2 ${
+                activeTab === 'ANALYTICS'
+                  ? 'border-amber-800 text-amber-900 bg-white'
+                  : 'border-transparent text-gray-500 hover:text-gray-900'
+              }`}
+            >
+              <BarChart2 className="w-4 h-4" /> {user.role === 'ARTISAN' ? 'Business Performance' : 'Client Performance'}
+            </button>
+            <button
+              onClick={() => setActiveTab('CHAT')}
+              className={`px-5 py-4 text-xs font-black uppercase tracking-wider flex items-center gap-2 shrink-0 transition-colors border-b-2 ${
+                activeTab === 'CHAT'
+                  ? 'border-amber-800 text-amber-900 bg-white'
+                  : 'border-transparent text-gray-500 hover:text-gray-900'
+              }`}
+            >
+              <MessageSquare className="w-4 h-4" /> Communication
+            </button>
+            <button
+              onClick={() => setActiveTab('REPORTS')}
+              className={`px-5 py-4 text-xs font-black uppercase tracking-wider flex items-center gap-2 shrink-0 transition-colors border-b-2 ${
+                activeTab === 'REPORTS'
+                  ? 'border-amber-800 text-amber-900 bg-white'
+                  : 'border-transparent text-gray-500 hover:text-gray-900'
+              }`}
+            >
+              <BarChart className="w-4 h-4" /> Partnership Reports
+            </button>
+            <button
+              onClick={() => setActiveTab('SUPPORT')}
+              className={`px-5 py-4 text-xs font-black uppercase tracking-wider flex items-center gap-2 shrink-0 transition-colors border-b-2 ${
+                activeTab === 'SUPPORT'
+                  ? 'border-amber-800 text-amber-900 bg-white'
+                  : 'border-transparent text-gray-500 hover:text-gray-900'
+              }`}
+            >
+              <LifeBuoy className="w-4 h-4" /> Support
             </button>
           </div>
-        )}
 
-        {/* Rating System (Artisan Only after completion) */}
-        {user.role === 'ARTISAN' && project.status === 'COMPLETED' && !project.rating && !ratingSubmitted && (
-          <div className="card p-6 bg-green-50/50 border-green-100">
-            <h3 className="font-bold text-green-900 mb-4">Rate Your Growth Manager</h3>
-            <form onSubmit={handleRateIntern} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-green-800 mb-2">Score (1-5)</label>
-                <div className="flex gap-2">
-                  {[1, 2, 3, 4, 5].map((num) => (
+          {/* TAB 1: OVERVIEW — COMMAND CENTER */}
+          {activeTab === 'OVERVIEW' && (
+            <div className="p-6 sm:p-8 space-y-8 bg-gray-50/30 flex-1">
+              {/* Command Center Header */}
+              <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-200/80 shadow-xs flex flex-col md:flex-row justify-between items-start gap-6">
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <span className="px-3 py-1 bg-amber-100 text-amber-900 font-extrabold text-[10px] tracking-wider uppercase rounded-full">
+                      Digital Growth Partnership
+                    </span>
+                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${health.color}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${health.dot}`}></span>
+                      {health.badge}
+                    </span>
+                    <span className="text-[11px] font-bold text-gray-500">
+                      {contractDetails?.duration || '6 MONTH'} PARTNERSHIP
+                    </span>
+                  </div>
+
+                  <h2 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">
+                    {project.request?.title || contractDetails?.title || 'Digital Expansion Partnership'}
+                  </h2>
+
+                  <div className="flex flex-wrap items-center gap-y-2 gap-x-4 text-xs text-gray-600">
+                    <span className="font-medium">
+                      Artisan: <strong className="text-gray-900 font-bold">{project.artisan?.user?.name}</strong>
+                    </span>
+                    <span className="text-gray-300">↔</span>
+                    <span className="font-medium">
+                      Growth Manager: <strong className="text-gray-900 font-bold">{project.intern?.user?.name}</strong>
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap gap-4 text-xs text-gray-500 pt-1">
+                    <span className="flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5 text-gray-400" />
+                      Started: {project.createdAt ? new Date(project.createdAt).toLocaleDateString('en-IN') : '—'}
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-gray-400" />
+                      Target End: {contractDetails?.endDate ? new Date(contractDetails.endDate).toLocaleDateString('en-IN') : 'Ongoing'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row md:flex-col gap-2.5 w-full md:w-auto shrink-0">
+                  {project.contract?.id && (
                     <button
-                      key={num}
-                      type="button"
-                      onClick={() => setRatingScore(num)}
-                      className={`w-10 h-10 rounded-full font-bold transition-colors ${
-                        ratingScore >= num ? 'bg-green-500 text-white' : 'bg-green-200 text-green-700 hover:bg-green-300'
-                      }`}
+                      onClick={() => navigate(`/contracts/${project.contract.id}`, { state: { projectId: id } })}
+                      className="px-4 py-2.5 bg-gray-900 hover:bg-gray-800 text-white font-bold rounded-xl text-xs transition-colors shadow-xs flex items-center justify-center gap-2"
                     >
-                      ★
+                      <FileText className="w-3.5 h-3.5" /> View Agreement
                     </button>
-                  ))}
+                  )}
+                  <button
+                    onClick={() => setActiveTab('PLAN')}
+                    className="px-4 py-2.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-bold rounded-xl text-xs transition-colors shadow-xs flex items-center justify-center gap-2"
+                  >
+                    <ClipboardList className="w-3.5 h-3.5" /> Execution Plan &rarr;
+                  </button>
                 </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-green-800 mb-1">Review (Optional)</label>
-                <textarea
-                  value={ratingReview}
-                  onChange={(e) => setRatingReview(e.target.value)}
-                  className="w-full p-3 rounded-lg border border-green-200 focus:outline-none focus:border-green-500 text-sm h-24 resize-none"
-                  placeholder="Tell us about your experience..."
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={isSubmittingRating}
-                className="w-full py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition"
-              >
-                Submit Rating
-              </button>
-            </form>
-          </div>
-        )}
 
-        {(project.rating || ratingSubmitted) && user.role === 'ARTISAN' && (
-          <div className="card p-6 text-center text-green-700 bg-green-50/50 border-green-100">
-            <span className="text-2xl mb-2 block">⭐</span>
-            <p className="font-medium">Thank you for your feedback.</p>
-          </div>
-        )}
-
-      </div>
-
-      {/* Main Area: Tabs */}
-      <div className="md:w-2/3 flex flex-col card overflow-hidden">
-        <div className="flex border-b bg-white overflow-x-auto scrollbar-none">
-          <button onClick={() => setActiveTab('OVERVIEW')} className={`px-6 py-4 text-sm font-bold flex items-center gap-2 shrink-0 ${activeTab === 'OVERVIEW' ? 'border-b-2 border-amber-800 text-amber-900' : 'text-gray-500 hover:text-gray-700'}`}>
-            <LayoutDashboard className="w-4 h-4" /> Overview
-          </button>
-          <button onClick={() => setActiveTab('ANALYTICS')} className={`px-6 py-4 text-sm font-bold flex items-center gap-2 shrink-0 ${activeTab === 'ANALYTICS' ? 'border-b-2 border-amber-800 text-amber-900' : 'text-gray-500 hover:text-gray-700'}`}>
-            <BarChart2 className="w-4 h-4" /> {user.role === 'ARTISAN' ? 'Business Performance' : 'Client Performance'}
-          </button>
-          <button onClick={() => setActiveTab('PLAN')} className={`px-6 py-4 text-sm font-bold flex items-center gap-2 shrink-0 ${activeTab === 'PLAN' ? 'border-b-2 border-amber-800 text-amber-900' : 'text-gray-500 hover:text-gray-700'}`}>
-            <ClipboardList className="w-4 h-4" /> Execution Plan
-          </button>
-          <button onClick={() => setActiveTab('CHAT')} className={`px-6 py-4 text-sm font-bold flex items-center gap-2 shrink-0 ${activeTab === 'CHAT' ? 'border-b-2 border-amber-800 text-amber-900' : 'text-gray-500 hover:text-gray-700'}`}>
-            <MessageSquare className="w-4 h-4" /> Communication
-          </button>
-          <button onClick={() => setActiveTab('REPORTS')} className={`px-6 py-4 text-sm font-bold flex items-center gap-2 shrink-0 ${activeTab === 'REPORTS' ? 'border-b-2 border-amber-800 text-amber-900' : 'text-gray-500 hover:text-gray-700'}`}>
-            <BarChart className="w-4 h-4" /> Partnership Reports
-          </button>
-          <button onClick={() => setActiveTab('SUPPORT')} className={`px-6 py-4 text-sm font-bold flex items-center gap-2 shrink-0 ${activeTab === 'SUPPORT' ? 'border-b-2 border-amber-800 text-amber-900' : 'text-gray-500 hover:text-gray-700'}`}>
-            <LifeBuoy className="w-4 h-4" /> {user.role === 'ARTISAN' ? 'Partnership Support' : 'Client Support'}
-          </button>
-        </div>
-      {activeTab === 'OVERVIEW' && (
-        <div className="flex-1 p-6 overflow-y-auto bg-gray-50 min-h-[400px] space-y-8">
-
-          {/* 1. PARTNERSHIP HEADER */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col md:flex-row gap-6 justify-between items-start">
-            <div className="space-y-4">
-              <div>
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold mb-3 ${
-                  project?.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-800' :
-                  project?.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
-                  'bg-gray-100 text-gray-800'
-                }`}>
-                  {project?.status?.replace('_', ' ') || 'UNKNOWN'}
-                </span>
-                <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">
-                  {project?.request?.title || 'Growth Partnership'}
-                </h2>
-                <p className="text-gray-500 mt-1 flex items-center gap-2">
-                  <span>{user.role === 'INTERN' ? 'Client' : 'Business'}: <strong>{project?.artisan?.user?.name || '—'}</strong></span>
-                  <span className="text-gray-300">↔</span>
-                  <span>{user.role === 'ARTISAN' ? 'Your Growth Manager' : 'Growth Manager'}: <strong>{project?.intern?.user?.name || '—'}</strong></span>
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-4 text-sm">
-                <div className="flex items-center gap-1.5 text-gray-600">
-                  <Calendar className="w-4 h-4 text-gray-400" />
-                  <span>Started: <strong>{project?.createdAt ? new Date(project.createdAt).toLocaleDateString() : '—'}</strong></span>
-                </div>
-                {contractDetails?.duration && (
-                  <div className="flex items-center gap-1.5 text-gray-600">
-                    <Clock className="w-4 h-4 text-gray-400" />
-                    <span>Duration: <strong>{contractDetails.duration}</strong></span>
+              {/* Health Banner & Execution Progress */}
+              <div className="grid sm:grid-cols-2 gap-6">
+                <div className="bg-white rounded-3xl p-6 border border-gray-200/80 shadow-xs space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-black uppercase tracking-wider text-gray-400">Partnership Health</h3>
+                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${health.color}`}>
+                      {health.badge}
+                    </span>
                   </div>
-                )}
-                {contractDetails?.status && (
-                  <div className="flex items-center gap-1.5 text-gray-600">
-                    <FileText className="w-4 h-4 text-gray-400" />
-                    <span>Contract: <strong>{contractDetails.status}</strong></span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Quick Actions (Right aligned on desktop) */}
-            <div className="flex flex-col gap-3 min-w-[200px] w-full md:w-auto">
-              {project?.contract?.id && (
-                <button onClick={() => navigate(`/contracts/${project.contract.id}`, { state: { projectId: id } })} className="flex items-center justify-between px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 font-semibold transition-colors">
-                  <span>View Contract</span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-              )}
-              <button onClick={() => setActiveTab('REPORTS')} className="flex items-center justify-between px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 font-semibold transition-colors">
-                <span>View Reports</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
-              {user.role === 'ARTISAN' && project?.status === 'IN_PROGRESS' && (
-                <button onClick={handleCompleteProject} className="flex items-center justify-between px-4 py-2 bg-amber-800 text-white rounded-xl hover:bg-amber-900 font-semibold transition-colors">
-                  <span>Complete Project</span>
-                  <CheckCircle className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div className="grid lg:grid-cols-3 gap-6">
-
-            {/* Main Content Column (Progress, Snapshot, Objectives) */}
-            <div className="lg:col-span-2 space-y-6">
-
-              {/* 2. PARTNERSHIP PROGRESS */}
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <Target className="w-5 h-5 text-indigo-600" />
-                  <h3 className="font-bold text-gray-900 text-lg">{user.role === 'ARTISAN' ? 'Partnership Progress' : 'Execution Progress'}</h3>
+                  <p className="text-base font-extrabold text-gray-900 leading-snug">{health.summary}</p>
+                  <p className="text-xs text-gray-500">
+                    Calculated from actual deadlines, task completion, and communication cadence.
+                  </p>
                 </div>
 
-                {contractDetails?.tasks && contractDetails.tasks.length > 0 ? (
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-end text-sm">
-                      <span className="text-gray-600 font-medium">Tasks Completed</span>
-                      <span className="text-gray-900 font-bold text-lg">
-                        {contractDetails.tasks.filter(t => t.isCompleted).length} / {contractDetails.tasks.length}
+                <div className="bg-white rounded-3xl p-6 border border-gray-200/80 shadow-xs space-y-3">
+                  <div className="flex items-center justify-between text-xs">
+                    <h3 className="font-black uppercase tracking-wider text-gray-400">Overall Milestone Execution</h3>
+                    <span className="font-bold text-gray-900">
+                      {completedTasks.length} / {allTasks.length} Done
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
+                    <div
+                      className="bg-amber-800 h-3 rounded-full transition-all duration-500 ease-out"
+                      style={{ width: `${allTasks.length ? (completedTasks.length / allTasks.length) * 100 : 0}%` }}
+                    ></div>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    {allTasks.length === 0
+                      ? 'No milestones defined yet.'
+                      : `${Math.round((completedTasks.length / allTasks.length) * 100)}% of committed contract deliverables completed.`}
+                  </p>
+                </div>
+              </div>
+
+              {/* Next Action & Current Focus */}
+              <div className="grid lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 space-y-6">
+                  {/* Next Action Card */}
+                  <div className="bg-gradient-to-br from-amber-900 to-amber-950 text-white rounded-3xl p-6 sm:p-7 shadow-sm space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-amber-200/90 bg-white/10 px-2.5 py-1 rounded-md">
+                        Next Priority Action
                       </span>
+                      {nextActionTask?.dueDate && (
+                        <span className="text-xs text-amber-200 flex items-center gap-1 font-semibold">
+                          <Clock className="w-3.5 h-3.5" /> Due: {new Date(nextActionTask.dueDate).toLocaleDateString('en-IN')}
+                        </span>
+                      )}
                     </div>
-                    <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
-                      <div
-                        className="bg-indigo-600 h-3 rounded-full transition-all duration-500 ease-out"
-                        style={{ width: `${(contractDetails.tasks.filter(t => t.isCompleted).length / contractDetails.tasks.length) * 100}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-sm text-gray-500 bg-gray-50 p-4 rounded-xl">
-                    No task data available yet. {user.role === 'ARTISAN' ? 'Wait for your manager to add tasks.' : 'Add tasks to the contract to track progress.'}
-                  </div>
-                )}
-              </div>
-
-              {/* 4. BUSINESS / GROWTH SNAPSHOT */}
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                <div className="flex items-center gap-2 mb-6">
-                  <TrendingUp className="w-5 h-5 text-green-600" />
-                  <h3 className="font-bold text-gray-900 text-lg">Growth Snapshot</h3>
-                </div>
-
-                {!analytics ? (
-                  <div className="text-sm text-gray-500 bg-gray-50 p-4 rounded-xl">
-                    Analytics will appear as data is collected.
-                  </div>
-                ) : user.role === 'ARTISAN' ? (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="p-4 bg-gray-50 rounded-xl">
-                      <span className="text-gray-500 text-xs font-bold uppercase tracking-wider block mb-1">Products</span>
-                      <span className="text-2xl font-extrabold text-gray-900">{analytics.totalProducts ?? 0}</span>
-                    </div>
-                    <div className="p-4 bg-gray-50 rounded-xl">
-                      <span className="text-gray-500 text-xs font-bold uppercase tracking-wider block mb-1">Views</span>
-                      <span className="text-2xl font-extrabold text-gray-900">{analytics.totalViews ?? 0}</span>
-                    </div>
-                    <div className="p-4 bg-gray-50 rounded-xl">
-                      <span className="text-gray-500 text-xs font-bold uppercase tracking-wider block mb-1">Orders</span>
-                      <span className="text-2xl font-extrabold text-gray-900">{analytics.totalOrders ?? 0}</span>
-                    </div>
-                    <div className="p-4 bg-green-50 rounded-xl">
-                      <span className="text-green-700 text-xs font-bold uppercase tracking-wider block mb-1">Revenue</span>
-                      <span className="text-2xl font-extrabold text-green-900">₹{analytics.totalRevenue ?? 0}</span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="p-4 bg-gray-50 rounded-xl">
-                      <span className="text-gray-500 text-xs font-bold uppercase tracking-wider block mb-1">Client Products</span>
-                      <span className="text-2xl font-extrabold text-gray-900">{analytics.totalProducts ?? 0}</span>
-                    </div>
-                    <div className="p-4 bg-gray-50 rounded-xl">
-                      <span className="text-gray-500 text-xs font-bold uppercase tracking-wider block mb-1">Client Views</span>
-                      <span className="text-2xl font-extrabold text-gray-900">{analytics.totalViews ?? 0}</span>
-                    </div>
-                    <div className="p-4 bg-gray-50 rounded-xl">
-                      <span className="text-gray-500 text-xs font-bold uppercase tracking-wider block mb-1">Client Orders</span>
-                      <span className="text-2xl font-extrabold text-gray-900">{analytics.totalOrders ?? 0}</span>
-                    </div>
-                    <div className="p-4 bg-gray-50 rounded-xl">
-                      <span className="text-gray-500 text-xs font-bold uppercase tracking-wider block mb-1">Tasks Completed</span>
-                      <span className="text-2xl font-extrabold text-gray-900">{analytics.tasksCompleted ?? 0} / {analytics.tasksTotal ?? 0}</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* 3. DELIVERABLES & UPCOMING WORK */}
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <CheckCircle className="w-5 h-5 text-amber-600" />
-                  <h3 className="font-bold text-gray-900 text-lg">{user.role === 'ARTISAN' ? 'Partnership Deliverables & Upcoming Work' : 'Client Deliverables & Upcoming Work'}</h3>
-                </div>
-
-                <div className="space-y-6">
-                  {contractDetails?.responsibilities?.length > 0 ? (
-                    <div>
-                      <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Core Deliverables</h4>
-                      <ul className="list-disc pl-5 space-y-1 text-gray-700 text-sm">
-                        {contractDetails.responsibilities.map((resp, i) => (
-                          <li key={i}>{resp}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : contractDetails?.description ? (
-                    <p className="text-sm text-gray-700">{contractDetails.description}</p>
-                  ) : null}
-
-                  {contractDetails?.tasks && contractDetails.tasks.some(t => !t.isCompleted) ? (
-                    <div>
-                      <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Upcoming Tasks</h4>
-                      <div className="space-y-3">
-                        {contractDetails.tasks
-                          .filter(t => !t.isCompleted)
-                          .sort((a, b) => {
-                            if (!a.dueDate) return 1;
-                            if (!b.dueDate) return -1;
-                            return new Date(a.dueDate) - new Date(b.dueDate);
-                          })
-                          .slice(0, 3)
-                          .map(task => {
-                            const isOverdue = task.dueDate && new Date(task.dueDate) < new Date();
-                            return (
-                              <div key={task.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-xl border border-gray-100">
-                                <div>
-                                  <p className="text-sm font-bold text-gray-800">{task.title}</p>
-                                  {task.dueDate && (
-                                    <p className={`text-xs mt-0.5 font-medium ${isOverdue ? 'text-red-600' : 'text-gray-500'}`}>
-                                      {isOverdue ? 'Overdue: ' : 'Due: '} {new Date(task.dueDate).toLocaleDateString()}
-                                    </p>
-                                  )}
-                                </div>
-                                <span className={`px-2 py-1 rounded text-[10px] font-bold tracking-wider uppercase ${isOverdue ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
-                                  {isOverdue ? 'Attention Needed' : 'In Progress'}
-                                </span>
-                              </div>
-                            );
-                        })}
+                    {nextActionTask ? (
+                      <div>
+                        <h4 className="text-lg sm:text-xl font-black mb-1.5">{nextActionTask.title}</h4>
+                        <p className="text-xs text-amber-100/80 line-clamp-2">
+                          {nextActionTask.description || `Assigned to ${nextActionTask.assignedRole?.replace('_', ' ') || 'Team'}`}
+                        </p>
                       </div>
-                      <button onClick={() => setActiveTab('PLAN')} className="mt-4 text-sm font-bold text-indigo-600 hover:text-indigo-800">
-                        View Full Execution Plan &rarr;
+                    ) : (
+                      <div>
+                        <h4 className="text-lg font-bold">All planned tasks are complete</h4>
+                        <p className="text-xs text-amber-200/80">Great job! Check with your partner to plan next phase milestones.</p>
+                      </div>
+                    )}
+                    <div className="pt-2 flex items-center gap-3">
+                      <button
+                        onClick={() => setActiveTab('PLAN')}
+                        className="px-5 py-2.5 bg-white text-gray-900 font-bold rounded-xl text-xs hover:bg-amber-50 transition-colors shadow-sm inline-flex items-center gap-2"
+                      >
+                        {nextActionTask ? 'Open Task in Plan' : 'View Execution Plan'} <ArrowRight className="w-3.5 h-3.5" />
                       </button>
                     </div>
+                  </div>
+
+                  {/* Goals & Scope of Work */}
+                  <div className="bg-white rounded-3xl p-6 sm:p-7 border border-gray-200/80 shadow-xs space-y-5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Target className="w-5 h-5 text-amber-700" />
+                        <h3 className="font-extrabold text-gray-900 text-lg">Partnership Goals & Scope</h3>
+                      </div>
+                      <span className="text-xs font-bold text-gray-400">Core Objectives</span>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-gray-400 block mb-1">
+                          Primary Goal
+                        </span>
+                        <p className="text-sm font-bold text-gray-900">
+                          {project.request?.title || 'Expand digital market presence and repeatable sales'}
+                        </p>
+                        {project.request?.description && (
+                          <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+                            {project.request.description}
+                          </p>
+                        )}
+                      </div>
+
+                      {contractDetails?.responsibilities && contractDetails.responsibilities.length > 0 ? (
+                        <div className="space-y-2">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-gray-400 block">
+                            Key Agreed Deliverables
+                          </span>
+                          <div className="grid sm:grid-cols-2 gap-2.5">
+                            {contractDetails.responsibilities.map((resp, idx) => (
+                              <div key={idx} className="flex items-start gap-2.5 p-3 rounded-xl bg-gray-50/80 text-xs text-gray-700 font-medium">
+                                <CheckCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                                <span>{resp}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center py-6 border border-dashed border-gray-200 rounded-2xl space-y-1">
+                          <p className="text-xs font-bold text-gray-700">Define partnership goals</p>
+                          <p className="text-[11px] text-gray-400">Add detailed deliverables to the contract to track them here.</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Current Focus (This Period) */}
+                  <div className="bg-white rounded-3xl p-6 sm:p-7 border border-gray-200/80 shadow-xs space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-5 h-5 text-amber-700" />
+                        <h3 className="font-extrabold text-gray-900 text-lg">Current Focus (This Period)</h3>
+                      </div>
+                      <button onClick={() => setActiveTab('PLAN')} className="text-xs font-bold text-amber-800 hover:underline">
+                        View All ({allTasks.length}) &rarr;
+                      </button>
+                    </div>
+
+                    {currentFocusTasks.length > 0 ? (
+                      <div className="space-y-2.5">
+                        {currentFocusTasks.map(task => {
+                          const isOverdue = task.dueDate && new Date(task.dueDate) < new Date();
+                          return (
+                            <div key={task.id} className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 p-3.5 bg-gray-50 rounded-2xl border border-gray-100">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <h5 className="font-bold text-sm text-gray-900">{task.title}</h5>
+                                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                                    task.assignedRole === 'ARTISAN' ? 'bg-emerald-50 text-emerald-700' :
+                                    task.assignedRole === 'SHARED' ? 'bg-purple-50 text-purple-700' :
+                                    'bg-blue-50 text-blue-700'
+                                  }`}>
+                                    {task.assignedRole?.replace('_', ' ') || 'Manager'}
+                                  </span>
+                                </div>
+                                {task.dueDate && (
+                                  <p className={`text-[11px] font-medium ${isOverdue ? 'text-red-600 font-bold' : 'text-gray-500'}`}>
+                                    {isOverdue ? 'Overdue: ' : 'Target Due: '} {new Date(task.dueDate).toLocaleDateString('en-IN')}
+                                  </p>
+                                )}
+                              </div>
+                              <button
+                                onClick={() => handleToggleTask(task.id)}
+                                disabled={togglingTask === task.id}
+                                className="px-3.5 py-1.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-bold rounded-xl text-xs transition shadow-2xs self-start sm:self-auto"
+                              >
+                                {togglingTask === task.id ? 'Updating...' : 'Mark Done'}
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="p-6 text-center text-xs text-gray-400 bg-gray-50 rounded-2xl">
+                        No pending work items for this period.
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Right Column: Role Perspective & Real Activity Feed */}
+                <div className="space-y-6">
+                  {/* Role Specific Perspective */}
+                  {user.role === 'ARTISAN' ? (
+                    <div className="bg-white rounded-3xl p-6 border border-gray-200/80 shadow-xs space-y-4">
+                      <div className="flex items-center gap-2">
+                        <User className="w-5 h-5 text-amber-700" />
+                        <h3 className="font-extrabold text-gray-900 text-base">Your Growth Partner</h3>
+                      </div>
+                      <div className="p-4 bg-amber-50/50 rounded-2xl border border-amber-100 space-y-2">
+                        <p className="font-black text-gray-900 text-sm">{project.intern.user.name}</p>
+                        <p className="text-xs text-gray-600">{project.intern.college || 'Growth Manager'}</p>
+                        <p className="text-[11px] text-gray-500">Responsible for cataloging, marketing execution, and channel reports.</p>
+                        <button
+                          onClick={() => setActiveTab('CHAT')}
+                          className="mt-2 w-full py-2 bg-amber-800 text-white font-bold rounded-xl text-xs hover:bg-amber-900 transition shadow-2xs flex items-center justify-center gap-1.5"
+                        >
+                          <MessageSquare className="w-3.5 h-3.5" /> Message Partner
+                        </button>
+                      </div>
+
+                      {artisanPendingTasks.length > 0 && (
+                        <div className="p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100 space-y-2">
+                          <span className="text-[10px] font-black uppercase text-emerald-800 block">Needs Your Attention</span>
+                          <p className="text-xs text-emerald-950 font-bold">{artisanPendingTasks[0].title}</p>
+                          <button
+                            onClick={() => setActiveTab('PLAN')}
+                            className="text-xs font-bold text-emerald-800 hover:underline"
+                          >
+                            Review & Complete &rarr;
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   ) : (
-                    <div className="text-sm text-gray-500 bg-gray-50 p-4 rounded-xl">
-                      No upcoming work scheduled. {user.role === 'ARTISAN' ? 'Your Growth Manager will update the execution plan.' : 'Add tasks to the Execution Plan to keep your client informed.'}
+                    <div className="bg-white rounded-3xl p-6 border border-gray-200/80 shadow-xs space-y-4">
+                      <div className="flex items-center gap-2">
+                        <User className="w-5 h-5 text-amber-700" />
+                        <h3 className="font-extrabold text-gray-900 text-base">Client Overview</h3>
+                      </div>
+                      <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 space-y-2">
+                        <p className="font-black text-gray-900 text-sm">{project.artisan.user.name}</p>
+                        <p className="text-xs text-gray-600">Location: {project.artisan.location || 'India'}</p>
+                        <p className="text-xs text-gray-600">Category: {project.request.category}</p>
+                        <div className="pt-2 flex flex-col gap-2">
+                          <button
+                            onClick={() => setActiveTab('ANALYTICS')}
+                            className="w-full py-2 bg-gray-900 text-white font-bold rounded-xl text-xs hover:bg-gray-800 transition"
+                          >
+                            Record Performance Update
+                          </button>
+                          <button
+                            onClick={() => setActiveTab('CHAT')}
+                            className="w-full py-2 bg-white border border-gray-200 text-gray-700 font-bold rounded-xl text-xs hover:bg-gray-50 transition"
+                          >
+                            Send Client Message
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   )}
-                </div>
-              </div>
 
-            </div>
-
-            {/* Right Column (Activity) */}
-            <div className="space-y-6">
-
-              {/* 5. RECENT ACTIVITY */}
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                <div className="flex items-center gap-2 mb-6">
-                  <Clock className="w-5 h-5 text-blue-600" />
-                  <h3 className="font-bold text-gray-900 text-lg">Recent Activity</h3>
-                </div>
-
-                <div className="space-y-5">
-                  {reports && reports.length > 0 && (
-                    <div className="relative pl-4 border-l-2 border-indigo-100">
-                      <div className="absolute w-2.5 h-2.5 bg-indigo-500 rounded-full -left-[6px] top-1.5"></div>
-                      <p className="text-sm font-semibold text-gray-900">Report Submitted</p>
-                      <p className="text-xs text-gray-500">{reports[0].period} - {reports[0].metric}</p>
-                      <span className="text-xs text-gray-400 mt-1 block">{new Date(reports[0].createdAt).toLocaleDateString()}</span>
+                  {/* Real-Event Activity Feed (Part 11) */}
+                  <div className="bg-white rounded-3xl p-6 border border-gray-200/80 shadow-xs space-y-4">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-5 h-5 text-amber-700" />
+                      <h3 className="font-extrabold text-gray-900 text-base">Partnership Activity</h3>
                     </div>
-                  )}
-                  {contractDetails?.tasks?.filter(t => t.isCompleted)?.slice(0, 2).map((task, idx) => (
-                    <div key={idx} className="relative pl-4 border-l-2 border-green-100">
-                      <div className="absolute w-2.5 h-2.5 bg-green-500 rounded-full -left-[6px] top-1.5"></div>
-                      <p className="text-sm font-semibold text-gray-900">Task Completed</p>
-                      <p className="text-xs text-gray-500">{task.title}</p>
-                      <span className="text-xs text-gray-400 mt-1 block">{task.completedAt ? new Date(task.completedAt).toLocaleDateString() : 'Recently'}</span>
+
+                    <div className="space-y-4">
+                      {activityEvents.slice(0, 6).map((ev) => {
+                        const getRelativeDay = (d) => {
+                          if (!d) return '—';
+                          const now = new Date();
+                          const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+                          const target = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+                          const diff = Math.floor((today - target) / (1000 * 60 * 60 * 24));
+                          if (diff === 0) return 'TODAY';
+                          if (diff === 1) return 'YESTERDAY';
+                          if (diff < 7) return `${diff} DAYS AGO`;
+                          return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }).toUpperCase();
+                        };
+                        return (
+                          <div key={ev.id} className="relative pl-4 border-l-2 border-amber-800/20 space-y-1">
+                            <div className="absolute w-2 h-2 rounded-full bg-amber-800 -left-[5px] top-1.5"></div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-[9px] font-black uppercase tracking-wider text-amber-900 bg-amber-100/70 px-1.5 py-0.5 rounded">
+                                {getRelativeDay(ev.date)}
+                              </span>
+                              <span className="text-[10px] text-gray-400">
+                                {ev.date ? ev.date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : ''}
+                              </span>
+                            </div>
+                            <p className="text-xs font-bold text-gray-900">{ev.title}</p>
+                            <p className="text-[11px] text-gray-500 leading-tight">{ev.subtitle}</p>
+                          </div>
+                        );
+                      })}
                     </div>
-                  ))}
-                  {messages && messages.length > 0 && (
-                    <div className="relative pl-4 border-l-2 border-gray-100">
-                      <div className="absolute w-2.5 h-2.5 bg-gray-300 rounded-full -left-[6px] top-1.5"></div>
-                      <p className="text-sm font-semibold text-gray-900">New Message</p>
-                      <p className="text-xs text-gray-500 truncate max-w-[200px]">{messages[messages.length - 1].content}</p>
-                    </div>
-                  )}
-                  <div className="relative pl-4 border-l-2 border-amber-100">
-                    <div className="absolute w-2.5 h-2.5 bg-amber-500 rounded-full -left-[6px] top-1.5"></div>
-                    <p className="text-sm font-semibold text-gray-900">Project Started</p>
-                    <p className="text-xs text-gray-500">Partnership initiated</p>
-                    <span className="text-xs text-gray-400 mt-1 block">{project?.createdAt ? new Date(project.createdAt).toLocaleDateString() : '—'}</span>
                   </div>
                 </div>
               </div>
-
             </div>
-          </div>
-        </div>
-      )}
+          )}
 
       {activeTab === 'ANALYTICS' && (
         <div className="flex-1 p-6 overflow-y-auto bg-gray-50 min-h-[400px] space-y-8">
@@ -1100,118 +1485,500 @@ export default function ProjectWorkspace() {
       )}
 
       {activeTab === 'PLAN' && (
-        <div className="flex-1 p-6 overflow-y-auto bg-gray-50 min-h-[400px] space-y-8">
+        <div className="flex-1 p-6 sm:p-8 overflow-y-auto bg-gray-50/50 min-h-[400px] space-y-8">
           {/* PLAN HEADER */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col md:flex-row gap-6 justify-between items-start">
-            <div>
-              <h2 className="text-2xl font-extrabold text-gray-900 tracking-tight">Execution Plan</h2>
-              <p className="text-gray-500 mt-1 flex items-center gap-2">
-                <span>{project?.contract?.title || project?.request?.title || 'Partnership'}</span>
-                {contractDetails?.duration && (
-                  <>
-                    <span>•</span>
-                    <span>{contractDetails.duration}</span>
-                  </>
-                )}
-              </p>
-              <div className="flex items-center gap-2 text-sm mt-3 text-gray-600">
-                <Calendar className="w-4 h-4" />
-                <span>{contractDetails?.startDate ? new Date(contractDetails.startDate).toLocaleDateString() : '—'}</span>
-                <span>—</span>
-                <span>{contractDetails?.endDate ? new Date(contractDetails.endDate).toLocaleDateString() : '—'}</span>
+          <div className="bg-white rounded-3xl border border-gray-200/80 p-6 sm:p-8 shadow-xs flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+            <div className="space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="px-3 py-1 bg-amber-100 text-amber-900 font-extrabold text-[10px] tracking-wider uppercase rounded-full">
+                  Execution Plan
+                </span>
+                <span className="text-xs font-bold text-gray-500">
+                  {contractDetails?.duration || '6 MONTH'} PARTNERSHIP
+                </span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">
+                Milestones & Operations
+              </h2>
+              <div className="flex flex-wrap items-center gap-3 text-xs text-gray-500 font-medium">
+                <span className="flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-gray-400" />
+                  {contractDetails?.startDate ? new Date(contractDetails.startDate).toLocaleDateString('en-IN') : 'Start'}
+                  {' → '}
+                  {contractDetails?.endDate ? new Date(contractDetails.endDate).toLocaleDateString('en-IN') : 'End'}
+                </span>
+                <span>•</span>
+                <span>{allTasks.length} Total Milestones Defined</span>
               </div>
             </div>
 
-            <div className="md:w-64 w-full">
-              <div className="flex justify-between items-end text-sm mb-2">
-                <span className="text-gray-600 font-medium">Progress</span>
-                <span className="text-gray-900 font-bold">
-                  {contractDetails?.tasks?.filter(t => t.isCompleted).length || 0} / {contractDetails?.tasks?.length || 0} tasks
+            <div className="w-full lg:w-72 space-y-3">
+              <div className="flex justify-between items-end text-xs">
+                <span className="font-bold text-gray-500 uppercase tracking-wider">Milestone Progress</span>
+                <span className="font-black text-gray-900">
+                  {completedTasks.length} / {allTasks.length} Done ({allTasks.length ? Math.round((completedTasks.length / allTasks.length) * 100) : 0}%)
                 </span>
               </div>
-              <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
+              <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
                 <div
-                  className="bg-indigo-600 h-2.5 rounded-full transition-all duration-500 ease-out"
-                  style={{ width: `${contractDetails?.tasks?.length ? ((contractDetails.tasks.filter(t => t.isCompleted).length) / contractDetails.tasks.length) * 100 : 0}%` }}
+                  className="bg-amber-800 h-3 rounded-full transition-all duration-500 ease-out"
+                  style={{ width: `${allTasks.length ? (completedTasks.length / allTasks.length) * 100 : 0}%` }}
                 ></div>
+              </div>
+              <div className="flex items-center justify-between pt-1">
+                <button
+                  onClick={() => setIsAddingTask(!isAddingTask)}
+                  className="px-4 py-2 bg-amber-800 hover:bg-amber-900 text-white font-bold rounded-xl text-xs transition shadow-xs inline-flex items-center gap-1.5"
+                >
+                  <Plus className="w-3.5 h-3.5" /> {isAddingTask ? 'Cancel Adding' : 'Add Milestone Task'}
+                </button>
+                {contractDetails?.id && (
+                  <button
+                    onClick={() => navigate(`/contracts/${contractDetails.id}`, { state: { projectId: id } })}
+                    className="text-xs font-bold text-gray-600 hover:text-gray-900 underline"
+                  >
+                    View Agreement
+                  </button>
+                )}
               </div>
             </div>
           </div>
 
-          {/* TASKS */}
-          {!contractDetails?.tasks || contractDetails.tasks.length === 0 ? (
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center">
-              <Target className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-bold text-gray-900 mb-2">No tasks have been added yet</h3>
-              <p className="text-gray-500 text-sm max-w-sm mx-auto">Your partnership plan will appear here once deliverables and tasks are defined.</p>
-              {user.role === 'INTERN' && contractDetails?.id && (
-                <button onClick={() => navigate(`/contracts/${contractDetails.id}`, { state: { projectId: id } })} className="mt-6 px-6 py-2 bg-indigo-600 hover:bg-indigo-700 transition text-white rounded-xl font-bold">
-                  Manage Tasks
-                </button>
-              )}
+          {/* PART 10: PARTNERSHIP LIFECYCLE ROADMAP */}
+          <div className="bg-white rounded-3xl p-6 border border-gray-200/80 shadow-xs space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-black uppercase tracking-wider text-gray-500">
+                Partnership Growth Lifecycle
+              </h3>
+              <span className="text-[11px] font-bold text-amber-800">
+                Stage {Math.min(6, Math.max(1, Math.ceil(((completedTasks.length / (allTasks.length || 1)) * 6))))} of 6
+              </span>
             </div>
-          ) : (
-            <div className="space-y-6">
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                  <div className="p-6 border-b border-gray-100 bg-gray-50/50">
-                    <h3 className="font-bold text-gray-900 text-lg flex items-center gap-2">
-                      <Package className="w-5 h-5 text-indigo-600" />
-                      Execution Tasks
-                    </h3>
-                  </div>
-                  <div className="divide-y divide-gray-100">
-                    {contractDetails.tasks.map(task => {
-                      const isOverdue = !task.isCompleted && task.dueDate && new Date(task.dueDate) < new Date();
-                      return (
-                        <div key={task.id} className="p-6 flex flex-col md:flex-row gap-4 items-start md:items-center hover:bg-gray-50/50 transition-colors">
-                          <div className="flex-1">
-                            <div className="flex flex-wrap items-center gap-3 mb-1">
-                              <h4 className={`font-bold text-base ${task.isCompleted ? 'text-gray-500 line-through' : 'text-gray-900'}`}>{task.title}</h4>
-                              {isOverdue && <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700 uppercase tracking-wider">Overdue</span>}
-                              {task.isCompleted && <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-700 uppercase tracking-wider">Completed</span>}
-                              {!task.isCompleted && !isOverdue && <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-blue-700 uppercase tracking-wider">In Progress</span>}
-                            </div>
-                            {task.description && <p className="text-sm text-gray-600 mb-3">{task.description}</p>}
-                            <div className="flex flex-wrap items-center gap-4 text-xs text-gray-500 font-medium">
-                              <span className="flex items-center gap-1.5"><Target className="w-3.5 h-3.5" /> Role: {task.assignedRole.replace('_', ' ')}</span>
-                              {task.dueDate && <span className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> Due: {new Date(task.dueDate).toLocaleDateString()}</span>}
-                              {task.completedAt && <span className="flex items-center gap-1.5"><CheckCircle className="w-3.5 h-3.5" /> Done: {new Date(task.completedAt).toLocaleDateString()}</span>}
-                            </div>
-                          </div>
-                          <div className="md:text-right w-full md:w-auto mt-4 md:mt-0">
-                            <button
-                              onClick={() => handleToggleTask(task.id)}
-                              disabled={togglingTask === task.id}
-                              className={`px-4 py-2 text-sm font-bold rounded-xl flex items-center justify-center gap-2 w-full md:w-auto transition-colors ${
-                                task.isCompleted
-                                  ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                                  : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200'
-                              }`}
-                            >
-                              {togglingTask === task.id ? 'Updating...' : task.isCompleted ? 'Reopen Task' : 'Mark Complete'}
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+            {(() => {
+              const stages = ['FOUNDATION', 'VISIBILITY', 'ACQUISITION', 'CONVERSION', 'RETENTION', 'SCALE'];
+              const currentStageIdx = allTasks.length === 0 ? 0 : Math.min(5, Math.floor((completedTasks.length / allTasks.length) * 5.99));
+              return (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 pt-1">
+                  {stages.map((st, idx) => {
+                    const isDone = idx < currentStageIdx;
+                    const isCurrent = idx === currentStageIdx;
+                    return (
+                      <div
+                        key={st}
+                        className={`p-3 rounded-2xl border text-center transition-all ${
+                          isCurrent
+                            ? 'bg-amber-800 text-white border-amber-800 shadow-xs ring-2 ring-amber-800/20'
+                            : isDone
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                            : 'bg-gray-50 text-gray-400 border-gray-200/60'
+                        }`}
+                      >
+                        <span className="text-[9px] font-black tracking-widest block opacity-75">PHASE {idx + 1}</span>
+                        <span className="text-xs font-black">{st}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* INLINE ADD TASK FORM */}
+          {isAddingTask && (
+            <div className="bg-white rounded-3xl p-6 sm:p-7 border-2 border-amber-800/40 shadow-md space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Package className="w-5 h-5 text-amber-800" />
+                  <h3 className="font-extrabold text-gray-900 text-lg">Add New Partnership Milestone</h3>
+                </div>
+                <button onClick={() => setIsAddingTask(false)} className="text-gray-400 hover:text-gray-600">
+                  <X className="w-5 h-5" />
+                </button>
               </div>
 
-              {/* PROFESSIONAL DELIVERABLES VIEW */}
-              {contractDetails?.responsibilities?.length > 0 && (
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                  <div className="flex items-center gap-2 mb-4">
-                    <FileText className="w-5 h-5 text-amber-600" />
-                    <h3 className="font-bold text-gray-900 text-lg">Partnership Deliverables</h3>
+              <form onSubmit={handleCreateWorkspaceTask} className="space-y-4">
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                      Milestone Title *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={newTaskTitle}
+                      onChange={(e) => setNewTaskTitle(e.target.value)}
+                      placeholder="e.g. Set up Amazon seller catalog and product photographs"
+                      className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-700"
+                    />
                   </div>
-                  <ul className="grid md:grid-cols-2 gap-4">
-                    {contractDetails.responsibilities.map((resp, i) => (
-                      <li key={i} className="flex items-start gap-3 p-4 bg-gray-50 rounded-xl">
-                        <CheckCircle className="w-5 h-5 text-gray-400 shrink-0 mt-0.5" />
-                        <span className="text-sm text-gray-700 font-medium">{resp}</span>
-                      </li>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                      Assigned Responsibility
+                    </label>
+                    <select
+                      value={newTaskRole}
+                      onChange={(e) => setNewTaskRole(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-700"
+                    >
+                      <option value="GROWTH_MANAGER">Growth Manager</option>
+                      <option value="ARTISAN">Artisan</option>
+                      <option value="SHARED">Shared (Both)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                      Target Due Date
+                    </label>
+                    <input
+                      type="date"
+                      value={newTaskDueDate}
+                      onChange={(e) => setNewTaskDueDate(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-700"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
+                      Description & Deliverable Details
+                    </label>
+                    <textarea
+                      value={newTaskDesc}
+                      onChange={(e) => setNewTaskDesc(e.target.value)}
+                      placeholder="Provide specific guidelines, assets required, and expected outcome..."
+                      rows={2}
+                      className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-700 resize-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingTask(false)}
+                    className="px-4 py-2 border border-gray-200 rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingTask || !newTaskTitle.trim()}
+                    className="px-5 py-2 bg-amber-800 text-white rounded-xl text-xs font-bold hover:bg-amber-900 disabled:opacity-50 transition shadow-xs"
+                  >
+                    {savingTask ? 'Saving Milestone...' : 'Save Milestone'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* NEXT PRIORITY ACTION BANNER */}
+          {nextActionTask && (
+            <div className="bg-gradient-to-r from-amber-900 to-amber-950 text-white rounded-3xl p-6 sm:p-7 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-amber-200 bg-white/10 px-2 py-0.5 rounded">
+                    Next Priority Action
+                  </span>
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                    nextActionTask.assignedRole === 'ARTISAN' ? 'bg-emerald-500/20 text-emerald-200' :
+                    nextActionTask.assignedRole === 'SHARED' ? 'bg-purple-500/20 text-purple-200' :
+                    'bg-blue-500/20 text-blue-200'
+                  }`}>
+                    {nextActionTask.assignedRole?.replace('_', ' ') || 'Team'}
+                  </span>
+                </div>
+                <h4 className="text-lg font-black">{nextActionTask.title}</h4>
+                {nextActionTask.description && (
+                  <p className="text-xs text-amber-100/80 line-clamp-1 max-w-xl">{nextActionTask.description}</p>
+                )}
+                {nextActionTask.dueDate && (
+                  <p className="text-[11px] text-amber-300 font-semibold flex items-center gap-1">
+                    <Clock className="w-3 h-3" /> Target Due: {new Date(nextActionTask.dueDate).toLocaleDateString('en-IN')}
+                  </p>
+                )}
+              </div>
+              <button
+                onClick={() => handleToggleTask(nextActionTask.id)}
+                disabled={togglingTask === nextActionTask.id}
+                className="px-5 py-2.5 bg-white text-gray-900 font-bold rounded-xl text-xs hover:bg-amber-50 transition shadow-xs whitespace-nowrap"
+              >
+                {togglingTask === nextActionTask.id ? 'Updating...' : 'Mark Complete'}
+              </button>
+            </div>
+          )}
+
+          {/* TASK GROUPS: OVERDUE, IN PROGRESS, COMPLETED */}
+          {allTasks.length === 0 ? (
+            <div className="bg-white rounded-3xl border border-gray-200/80 p-12 text-center space-y-4">
+              <Target className="w-12 h-12 text-gray-300 mx-auto" />
+              <div className="space-y-1">
+                <h3 className="text-lg font-bold text-gray-900">No Execution Milestones Yet</h3>
+                <p className="text-xs text-gray-500 max-w-md mx-auto">
+                  Add concrete tasks to structure your partnership execution and track progress with real deadlines.
+                </p>
+              </div>
+              <button
+                onClick={() => setIsAddingTask(true)}
+                className="px-5 py-2.5 bg-amber-800 text-white font-bold rounded-xl text-xs hover:bg-amber-900 transition shadow-xs inline-flex items-center gap-1.5"
+              >
+                <Plus className="w-4 h-4" /> Add First Milestone Task
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-8">
+              {/* 1. OVERDUE TASKS */}
+              {overdueTasks.length > 0 && (
+                <div className="bg-white rounded-3xl border border-red-200 shadow-xs overflow-hidden">
+                  <div className="p-5 bg-red-50/70 border-b border-red-100 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-red-600" />
+                      <h3 className="font-extrabold text-red-950 text-sm">
+                        Overdue Milestones ({overdueTasks.length})
+                      </h3>
+                    </div>
+                    <span className="text-[10px] font-black uppercase text-red-700 bg-red-100 px-2 py-0.5 rounded">
+                      Needs Immediate Action
+                    </span>
+                  </div>
+                  <div className="divide-y divide-red-100">
+                    {overdueTasks.map(task => (
+                      <div key={task.id} className="p-5 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between hover:bg-red-50/30 transition">
+                        <div className="space-y-1.5 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h4 className="font-bold text-gray-900 text-sm">{task.title}</h4>
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                              task.assignedRole === 'ARTISAN' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+                              task.assignedRole === 'SHARED' ? 'bg-purple-50 text-purple-700 border border-purple-200' :
+                              'bg-blue-50 text-blue-700 border border-blue-200'
+                            }`}>
+                              {task.assignedRole?.replace('_', ' ') || 'Team'}
+                            </span>
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700 uppercase">
+                              Past Due
+                            </span>
+                          </div>
+                          {task.description && (
+                            <p className="text-xs text-gray-600 leading-relaxed">{task.description}</p>
+                          )}
+                          <div className="flex items-center gap-3 text-xs text-red-700 font-semibold">
+                            <span className="flex items-center gap-1">
+                              <Calendar className="w-3.5 h-3.5" /> Due: {new Date(task.dueDate).toLocaleDateString('en-IN')}
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleToggleTask(task.id)}
+                          disabled={togglingTask === task.id}
+                          className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-xs transition shadow-2xs self-start md:self-auto shrink-0"
+                        >
+                          {togglingTask === task.id ? 'Updating...' : 'Mark Done'}
+                        </button>
+                      </div>
                     ))}
-                  </ul>
+                  </div>
+                </div>
+              )}
+
+              {/* 2. IN PROGRESS / UPCOMING TASKS */}
+              <div className="bg-white rounded-3xl border border-gray-200/80 shadow-xs overflow-hidden">
+                <div className="p-5 bg-gray-50/70 border-b border-gray-100 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Package className="w-4 h-4 text-amber-800" />
+                    <h3 className="font-extrabold text-gray-900 text-sm">
+                      Active Milestones in Progress ({inProgressTasks.length})
+                    </h3>
+                  </div>
+                  <span className="text-[10px] font-black uppercase text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
+                    Current Cycle
+                  </span>
+                </div>
+                {inProgressTasks.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-gray-400">
+                    All current milestones have been completed!
+                  </div>
+                ) : (
+                  <div className="divide-y divide-gray-100">
+                    {inProgressTasks.map(task => (
+                      <div key={task.id} className="p-5 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between hover:bg-gray-50/50 transition">
+                        <div className="space-y-1.5 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h4 className="font-bold text-gray-900 text-sm">{task.title}</h4>
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                              task.assignedRole === 'ARTISAN' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+                              task.assignedRole === 'SHARED' ? 'bg-purple-50 text-purple-700 border border-purple-200' :
+                              'bg-blue-50 text-blue-700 border border-blue-200'
+                            }`}>
+                              {task.assignedRole?.replace('_', ' ') || 'Team'}
+                            </span>
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 uppercase">
+                              In Progress
+                            </span>
+                          </div>
+                          {task.description && (
+                            <p className="text-xs text-gray-600 leading-relaxed">{task.description}</p>
+                          )}
+                          <div className="flex items-center gap-3 text-xs text-gray-500 font-medium">
+                            {task.dueDate && (
+                              <span className="flex items-center gap-1">
+                                <Calendar className="w-3.5 h-3.5 text-gray-400" /> Due: {new Date(task.dueDate).toLocaleDateString('en-IN')}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleToggleTask(task.id)}
+                          disabled={togglingTask === task.id}
+                          className="px-4 py-2 bg-amber-800 hover:bg-amber-900 text-white font-bold rounded-xl text-xs transition shadow-2xs self-start md:self-auto shrink-0"
+                        >
+                          {togglingTask === task.id ? 'Updating...' : 'Mark Done'}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* 3. COMPLETED TASKS */}
+              {completedTasks.length > 0 && (
+                <div className="bg-white rounded-3xl border border-gray-200/80 shadow-xs overflow-hidden">
+                  <div className="p-5 bg-emerald-50/50 border-b border-emerald-100 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-emerald-700" />
+                      <h3 className="font-extrabold text-emerald-950 text-sm">
+                        Completed Milestones ({completedTasks.length})
+                      </h3>
+                    </div>
+                    <span className="text-[10px] font-black uppercase text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded">
+                      Delivered
+                    </span>
+                  </div>
+                  <div className="divide-y divide-gray-100">
+                    {completedTasks.map(task => (
+                      <div key={task.id} className="p-5 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between hover:bg-emerald-50/20 transition">
+                        <div className="space-y-1.5 flex-1 opacity-80">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h4 className="font-bold text-gray-600 line-through text-sm">{task.title}</h4>
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 uppercase">
+                              Done
+                            </span>
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                              task.assignedRole === 'ARTISAN' ? 'bg-emerald-50 text-emerald-700' :
+                              task.assignedRole === 'SHARED' ? 'bg-purple-50 text-purple-700' :
+                              'bg-blue-50 text-blue-700'
+                            }`}>
+                              {task.assignedRole?.replace('_', ' ') || 'Team'}
+                            </span>
+                          </div>
+                          {task.description && (
+                            <p className="text-xs text-gray-500 line-clamp-1">{task.description}</p>
+                          )}
+                          <div className="flex items-center gap-3 text-xs text-emerald-800 font-medium">
+                            <span className="flex items-center gap-1">
+                              <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                              Completed {task.completedAt ? new Date(task.completedAt).toLocaleDateString('en-IN') : 'recently'}
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleToggleTask(task.id)}
+                          disabled={togglingTask === task.id}
+                          className="px-3.5 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl text-xs transition shadow-2xs self-start md:self-auto shrink-0"
+                        >
+                          {togglingTask === task.id ? 'Updating...' : 'Reopen'}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* VISUAL EXECUTION TIMELINE (PART 6) */}
+              <div className="bg-white rounded-3xl border border-gray-200/80 p-6 sm:p-7 shadow-xs space-y-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-5 h-5 text-amber-800" />
+                    <h3 className="font-extrabold text-gray-900 text-base">Execution Roadmap Timeline</h3>
+                  </div>
+                  <span className="text-xs font-bold text-gray-400">Sequential Milestones</span>
+                </div>
+
+                <div className="relative pl-6 sm:pl-8 space-y-6 border-l-2 border-amber-800/20 ml-2">
+                  {/* Start Node */}
+                  <div className="relative">
+                    <div className="absolute -left-[31px] sm:-left-[39px] top-1 w-4 h-4 rounded-full bg-amber-800 border-2 border-white shadow-xs"></div>
+                    <div>
+                      <span className="text-[10px] font-black uppercase text-amber-800 tracking-wider">Partnership Commencement</span>
+                      <p className="text-xs font-bold text-gray-900">
+                        {contractDetails?.startDate ? new Date(contractDetails.startDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Commenced'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Task Nodes */}
+                  {allTasks.map((t, idx) => {
+                    const isDone = t.isCompleted;
+                    const isOverdue = !t.isCompleted && t.dueDate && new Date(t.dueDate) < new Date();
+                    return (
+                      <div key={t.id} className="relative">
+                        <div className={`absolute -left-[31px] sm:-left-[39px] top-1 w-4 h-4 rounded-full border-2 border-white shadow-xs ${
+                          isDone ? 'bg-emerald-600' : isOverdue ? 'bg-red-500' : 'bg-blue-600'
+                        }`}></div>
+                        <div className="space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-[10px] font-black uppercase text-gray-400">Milestone #{idx + 1}</span>
+                            <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${
+                              isDone ? 'bg-emerald-50 text-emerald-700' : isOverdue ? 'bg-red-50 text-red-700' : 'bg-blue-50 text-blue-700'
+                            }`}>
+                              {isDone ? 'Delivered' : isOverdue ? 'Overdue' : 'Active'}
+                            </span>
+                            <span className="text-[10px] text-gray-400 font-semibold">
+                              Owner: {t.assignedRole?.replace('_', ' ') || 'Team'}
+                            </span>
+                          </div>
+                          <p className={`text-xs font-bold ${isDone ? 'text-gray-500 line-through' : 'text-gray-900'}`}>{t.title}</p>
+                          {t.dueDate && (
+                            <p className="text-[11px] text-gray-400">
+                              Target Date: {new Date(t.dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Target End Node */}
+                  <div className="relative">
+                    <div className="absolute -left-[31px] sm:-left-[39px] top-1 w-4 h-4 rounded-full bg-gray-400 border-2 border-white shadow-xs"></div>
+                    <div>
+                      <span className="text-[10px] font-black uppercase text-gray-500 tracking-wider">Target Final Deliverable</span>
+                      <p className="text-xs font-bold text-gray-900">
+                        {contractDetails?.endDate ? new Date(contractDetails.endDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Partnership Completion'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* CONTRACT DELIVERABLES & RESPONSIBILITIES (PART 6) */}
+              {contractDetails?.responsibilities?.length > 0 && (
+                <div className="bg-white rounded-3xl border border-gray-200/80 p-6 sm:p-7 shadow-xs space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <FileText className="w-5 h-5 text-amber-800" />
+                      <h3 className="font-extrabold text-gray-900 text-base">Agreed Deliverables (From Agreement)</h3>
+                    </div>
+                    <span className="text-xs font-bold text-gray-400">Contractual Commitments</span>
+                  </div>
+                  <div className="grid md:grid-cols-2 gap-3">
+                    {contractDetails.responsibilities.map((resp, i) => (
+                      <div key={i} className="flex items-start gap-3 p-3.5 bg-gray-50/70 border border-gray-100 rounded-2xl">
+                        <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                        <span className="text-xs font-medium text-gray-800 leading-relaxed">{resp}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -1444,7 +2211,7 @@ export default function ProjectWorkspace() {
           </div>
         )}
       </div>
-
     </div>
+  </div>
   );
 }

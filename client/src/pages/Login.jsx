@@ -32,13 +32,21 @@ export default function Login() {
     } catch (err) {
       console.error('Login error:', err);
       if (!err.response) {
-        setError('Unable to reach the server. Please check your connection and try again.');
-      } else if (err.response.status === 500) {
-        setError('Server is temporarily unavailable. Please try again in a moment.');
+        if (err.code === 'ECONNABORTED') {
+          setError('The server took too long to respond. The service may be warming up—please try again.');
+        } else {
+          setError('Unable to reach the server. Please check your internet connection and try again.');
+        }
       } else if (err.response.status === 401) {
         setError(err.response.data?.error || 'Invalid phone number or password.');
+      } else if (err.response.data?.code === 'DATABASE_ERROR' || err.response.status === 503) {
+        setError('Database service is currently warming up. Please wait a few seconds and try again.');
+      } else if (err.response.status === 502 || err.response.status === 504) {
+        setError('Server is currently starting up or experiencing high traffic. Please retry in a moment.');
+      } else if (err.response.status >= 500) {
+        setError(err.response.data?.error || 'Server error. Please try again in a few moments.');
       } else {
-        setError(err.response.data?.error || 'Something went wrong. Please try again.');
+        setError(err.response.data?.error || 'Authentication error. Please check your details and try again.');
       }
     } finally {
       setLoading(false);
@@ -53,13 +61,13 @@ export default function Login() {
         </div>
         <h1 className="text-2xl font-extrabold text-gray-900">Sign In to Bharat Bazaar</h1>
         <p className="text-xs text-gray-500">
-          Enter your registered phone number and password to access your account.
+          Enter your registered phone number or email and password to access your account.
         </p>
       </div>
 
       <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-100 shadow-sm space-y-6">
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-xs font-medium">
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-xs font-medium leading-relaxed">
             {error}
           </div>
         )}
@@ -67,14 +75,14 @@ export default function Login() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-xs font-bold text-gray-700 uppercase mb-1">
-              Phone Number
+              Phone Number or Email
             </label>
             <div className="relative">
               <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
-                type="tel"
+                type="text"
                 required
-                placeholder="Enter 10-digit phone number"
+                placeholder="Enter 10-digit phone or email"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-700"
@@ -104,7 +112,7 @@ export default function Login() {
             disabled={loading}
             className="w-full py-3.5 bg-amber-700 text-white font-bold rounded-xl text-sm hover:bg-amber-800 transition-colors shadow-lg shadow-amber-700/20 flex items-center justify-center gap-2 disabled:bg-gray-400"
           >
-            {loading ? 'Signing In...' : 'Sign In'}
+            {loading ? 'Verifying & Signing In...' : 'Sign In'}
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>

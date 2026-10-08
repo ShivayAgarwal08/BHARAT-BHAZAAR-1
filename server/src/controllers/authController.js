@@ -102,24 +102,38 @@ const login = async (req, res) => {
     const isEmail = rawInput.includes('@');
     let user = null;
 
-    if (isEmail) {
-      user = await prisma.user.findFirst({
-        where: { email: { equals: rawInput.toLowerCase(), mode: 'insensitive' } }
-      });
-    } else {
-      const cleanPhone = rawInput.replace(/\s+/g, '');
-      const barePhone = cleanPhone.replace(/^\+91/, '');
-      user = await prisma.user.findFirst({
-        where: {
-          OR: [
-            { phone: rawInput },
-            { phone: cleanPhone },
-            { phone: barePhone },
-            { phone: `+91${barePhone}` },
-            { email: { equals: rawInput.toLowerCase(), mode: 'insensitive' } }
-          ]
-        }
-      });
+    const findUser = async () => {
+      if (isEmail) {
+        return prisma.user.findFirst({
+          where: { email: { equals: rawInput.toLowerCase(), mode: 'insensitive' } }
+        });
+      } else {
+        const cleanPhone = rawInput.replace(/\s+/g, '');
+        const barePhone = cleanPhone.replace(/^\+91/, '');
+        return prisma.user.findFirst({
+          where: {
+            OR: [
+              { phone: rawInput },
+              { phone: cleanPhone },
+              { phone: barePhone },
+              { phone: `+91${barePhone}` },
+              { email: { equals: rawInput.toLowerCase(), mode: 'insensitive' } }
+            ]
+          }
+        });
+      }
+    };
+
+    try {
+      user = await findUser();
+    } catch (dbErr) {
+      if (dbErr.code === 'P1001' || dbErr.code === 'P1002' || dbErr.message?.includes('database server') || dbErr.message?.includes('Engine is not running')) {
+        console.warn('Transient DB connection error during login, retrying once...', dbErr.code);
+        await new Promise(r => setTimeout(r, 800));
+        user = await findUser();
+      } else {
+        throw dbErr;
+      }
     }
 
     if (!user) {
@@ -140,6 +154,9 @@ const login = async (req, res) => {
     res.json({ token, user: { id: user.id, name: user.name, role: user.role } });
   } catch (error) {
     console.error('Login error:', error);
+    if (error.code && error.code.startsWith('P')) {
+      return res.status(503).json({ error: 'Database service is warming up. Please retry in a moment.', code: 'DATABASE_ERROR' });
+    }
     res.status(500).json({ error: 'Server error. Please try again in a moment.', code: 'SERVER_ERROR' });
   }
 };

@@ -29,6 +29,32 @@ export default function ArtisanDashboard() {
   const [orders, setOrders] = useState([]);
   const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const [prodRes, reqRes, contractRes, orderRes, analyticsRes] = await Promise.all([
+        axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/products/my/products`),
+        axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/requests/my/requests`),
+        axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/contracts/my`),
+        axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/orders/artisan/my`),
+        axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/analytics/artisan`),
+      ]);
+
+      setProducts(prodRes.data || []);
+      setRequests(reqRes.data || []);
+      setContracts(contractRes.data || []);
+      setOrders(orderRes.data || []);
+      setAnalytics(analyticsRes.data || null);
+    } catch (err) {
+      console.error('Failed to fetch artisan dashboard data', err);
+      setError('Unable to load your business dashboard. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!user) {
@@ -40,30 +66,7 @@ export default function ArtisanDashboard() {
       return;
     }
 
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const [prodRes, reqRes, contractRes, orderRes, analyticsRes] = await Promise.all([
-          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/products/my/products`),
-          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/requests/my/requests`),
-          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/contracts/my`),
-          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/orders/artisan/my`),
-          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/analytics/artisan`),
-        ]);
-
-        setProducts(prodRes.data);
-        setRequests(reqRes.data);
-        setContracts(contractRes.data);
-        setOrders(orderRes.data);
-        setAnalytics(analyticsRes.data);
-      } catch (err) {
-        console.error('Failed to fetch artisan dashboard data', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (user) fetchData();
+    fetchData();
   }, [user, navigate]);
 
   const handleDeleteProduct = async (id) => {
@@ -96,6 +99,24 @@ export default function ArtisanDashboard() {
       <div className="max-w-7xl mx-auto px-4 py-16 text-center space-y-4">
         <div className="w-12 h-12 border-4 border-amber-700 border-t-transparent rounded-full animate-spin mx-auto"></div>
         <p className="text-gray-500 font-medium">Loading your business dashboard...</p>
+      </div>
+    );
+  }
+
+  if (error && !products.length && !contracts.length) {
+    return (
+      <div className="max-w-md mx-auto px-4 py-16 text-center space-y-4">
+        <div className="w-12 h-12 bg-red-100 text-red-700 rounded-2xl flex items-center justify-center font-bold text-xl mx-auto">
+          !
+        </div>
+        <h2 className="text-xl font-bold text-gray-900">Unable to load dashboard</h2>
+        <p className="text-sm text-gray-500">{error}</p>
+        <button
+          onClick={fetchData}
+          className="px-6 py-2.5 bg-amber-700 text-white font-bold rounded-xl text-sm hover:bg-amber-800 transition-colors shadow-sm"
+        >
+          Retry
+        </button>
       </div>
     );
   }

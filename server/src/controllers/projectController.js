@@ -61,21 +61,35 @@ const getProjectById = async (req, res) => {
     // Authorization: User must be part of the project
     const isArtisan = project.artisan.user.id === req.user.id;
     const isIntern = project.intern.user.id === req.user.id;
+    const isAdmin = req.user.role === 'ADMIN';
 
-    if (!isArtisan && !isIntern) {
+    if (!isArtisan && !isIntern && !isAdmin) {
       return res.status(403).json({ error: 'Unauthorized to view this project' });
     }
 
     if (!project.contract) {
-      const linkedContract = await prisma.contract.findFirst({
-        where: {
-          OR: [
-            { requestId: project.requestId },
-            { artisanId: project.artisanId, internId: project.internId }
-          ]
-        },
-        orderBy: { createdAt: 'desc' }
-      });
+      let linkedContract = null;
+      if (project.requestId) {
+        linkedContract = await prisma.contract.findFirst({
+          where: { requestId: project.requestId, projectId: null },
+          orderBy: { createdAt: 'desc' }
+        });
+      }
+      if (!linkedContract) {
+        const candidateContracts = await prisma.contract.findMany({
+          where: {
+            artisanId: project.artisanId,
+            internId: project.internId,
+            projectId: null
+          }
+        });
+        if (candidateContracts.length === 1) {
+          linkedContract = candidateContracts[0];
+        } else if (candidateContracts.length > 1) {
+          console.warn(`Ambiguous contracts for project ${project.id}: found ${candidateContracts.length} unlinked candidates. Will not guess.`);
+        }
+      }
+
       if (linkedContract) {
         await prisma.contract.update({
           where: { id: linkedContract.id },

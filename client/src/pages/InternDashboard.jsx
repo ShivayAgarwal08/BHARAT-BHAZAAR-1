@@ -24,6 +24,7 @@ export default function InternDashboard() {
   const [contracts, setContracts] = useState([]);
   const [reputation, setReputation] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   // Profile update state
   const [tier, setTier] = useState('STARTER');
@@ -32,6 +33,43 @@ export default function InternDashboard() {
   const [bio, setBio] = useState('');
   const [updatingProfile, setUpdatingProfile] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const [reqRes, appRes, contractRes] = await Promise.all([
+        axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/requests`),
+        axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/applications/my`),
+        axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/contracts/my`),
+      ]);
+
+      setOpenRequests(reqRes.data.data || reqRes.data || []);
+      setMyApplications(appRes.data || []);
+      setContracts(contractRes.data || []);
+
+      if (user?.intern) {
+        setTier(user.intern.tier || 'STARTER');
+        setHourlyRate(user.intern.hourlyRate || '');
+        setProjectRate(user.intern.projectRate || '');
+        setBio(user.intern.bio || '');
+
+        try {
+          const repRes = await axios.get(
+            `${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/projects/intern/${user.intern.id}/reputation`
+          );
+          setReputation(repRes.data);
+        } catch (repErr) {
+          console.warn('Reputation fetch error:', repErr);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load intern dashboard', err);
+      setError('Unable to load Growth Manager dashboard. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (!user) {
@@ -43,38 +81,7 @@ export default function InternDashboard() {
       return;
     }
 
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const [reqRes, appRes, contractRes] = await Promise.all([
-          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/requests`),
-          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/applications/my`),
-          axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/contracts/my`),
-        ]);
-
-        setOpenRequests(reqRes.data.data || reqRes.data);
-        setMyApplications(appRes.data);
-        setContracts(contractRes.data);
-
-        if (user.intern) {
-          setTier(user.intern.tier || 'STARTER');
-          setHourlyRate(user.intern.hourlyRate || '');
-          setProjectRate(user.intern.projectRate || '');
-          setBio(user.intern.bio || '');
-
-          const repRes = await axios.get(
-            `${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/projects/intern/${user.intern.id}/reputation`
-          );
-          setReputation(repRes.data);
-        }
-      } catch (err) {
-        console.error('Failed to load intern dashboard', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (user) fetchData();
+    fetchData();
   }, [user, navigate]);
 
   const handleUpdateProfile = async (e) => {
@@ -102,6 +109,24 @@ export default function InternDashboard() {
       <div className="max-w-7xl mx-auto px-4 py-16 text-center space-y-4">
         <div className="w-12 h-12 border-4 border-amber-700 border-t-transparent rounded-full animate-spin mx-auto"></div>
         <p className="text-gray-500 font-medium">Loading Growth Manager workspace...</p>
+      </div>
+    );
+  }
+
+  if (error && !contracts.length && !myApplications.length) {
+    return (
+      <div className="max-w-md mx-auto px-4 py-16 text-center space-y-4">
+        <div className="w-12 h-12 bg-red-100 text-red-700 rounded-2xl flex items-center justify-center font-bold text-xl mx-auto">
+          !
+        </div>
+        <h2 className="text-xl font-bold text-gray-900">Unable to load partnerships</h2>
+        <p className="text-sm text-gray-500">{error}</p>
+        <button
+          onClick={fetchData}
+          className="px-6 py-2.5 bg-amber-700 text-white font-bold rounded-xl text-sm hover:bg-amber-800 transition-colors shadow-sm"
+        >
+          Retry
+        </button>
       </div>
     );
   }

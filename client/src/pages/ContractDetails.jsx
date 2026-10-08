@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useLocation } from 'react-router-dom';
 import axios from 'axios';
-import { FileText, CheckCircle2, Calendar, ShieldCheck, UserCheck, Plus, CheckSquare, Square, ArrowLeft, Download, PenTool, CheckCircle } from 'lucide-react';
+import { FileText, CheckCircle2, Calendar, ShieldCheck, UserCheck, Plus, CheckSquare, Square, ArrowLeft, Download, PenTool, CheckCircle, ArrowRight, Clock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function ContractDetails() {
@@ -12,6 +12,7 @@ export default function ContractDetails() {
   const [contract, setContract] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   // Task state
   const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -115,46 +116,80 @@ export default function ContractDetails() {
         {(() => {
           const targetProjectId = contract.projectId || location.state?.projectId;
           return (
-            <Link
-              to={targetProjectId ? `/projects/${targetProjectId}` : '/dashboard'}
-              className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 font-semibold rounded-xl text-sm hover:bg-gray-50 hover:border-gray-300 transition-colors shadow-sm"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              {targetProjectId ? 'Back to Partnership Workspace' : 'Back to Dashboard'}
-            </Link>
+            <div className="flex items-center gap-3">
+              <Link
+                to={targetProjectId ? `/projects/${targetProjectId}` : '/dashboard'}
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 text-gray-700 font-semibold rounded-xl text-sm hover:bg-gray-50 hover:border-gray-300 transition-colors shadow-sm"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                {targetProjectId ? 'Back to Partnership Workspace' : 'Back to Dashboard'}
+              </Link>
+              {targetProjectId && (
+                <Link
+                  to={`/projects/${targetProjectId}`}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 text-amber-900 border border-amber-200/80 rounded-xl text-xs font-bold hover:bg-amber-100 transition-colors"
+                >
+                  Active Workspace <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              )}
+            </div>
           );
         })()}
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
           <button
             onClick={async () => {
               try {
+                setDownloadingPdf(true);
                 const token = localStorage.getItem('token');
-                const res = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/contracts/${id}/pdf`, {
+                const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+                const res = await axios.get(`${apiUrl}/api/contracts/${id}/pdf`, {
                   responseType: 'blob',
                   headers: token ? { Authorization: `Bearer ${token}` } : {}
                 });
-                const url = window.URL.createObjectURL(new Blob([res.data]));
+
+                // If response is accidentally returned as JSON blob
+                if (res.data?.type === 'application/json') {
+                  const errorText = await res.data.text();
+                  const parsed = JSON.parse(errorText);
+                  throw new Error(parsed.error || 'Server error generating PDF.');
+                }
+
+                const ref = (contract?.id || id).slice(0, 8).toUpperCase();
+                const filename = `Bharat-Bazaar-Partnership-Agreement-${ref}.pdf`;
+                const blob = new Blob([res.data], { type: 'application/pdf' });
+                const url = window.URL.createObjectURL(blob);
                 const link = document.createElement('a');
                 link.href = url;
-                link.setAttribute('download', `Bharat-Bazaar-Partnership-Agreement-${id}.pdf`);
+                link.setAttribute('download', filename);
                 document.body.appendChild(link);
                 link.click();
                 link.parentNode.removeChild(link);
                 window.URL.revokeObjectURL(url);
               } catch (err) {
                 console.error('PDF download error:', err);
-                if (!err.response) {
-                  setError('Unable to reach the server. Please try again.');
-                } else if (err.response.status === 403) {
-                  setError('You are not authorized to download this agreement.');
-                } else {
-                  setError('Failed to download PDF. Please try again.');
+                let message = 'Failed to download PDF. Please try again.';
+                if (err.response?.data instanceof Blob) {
+                  try {
+                    const text = await err.response.data.text();
+                    const parsed = JSON.parse(text);
+                    if (parsed.error) message = parsed.error;
+                  } catch (_) {}
+                } else if (err.response?.status === 403) {
+                  message = 'You are not authorized to download this agreement.';
+                } else if (!err.response) {
+                  message = 'Unable to reach the server. Please check connection and try again.';
+                } else if (err.message) {
+                  message = err.message;
                 }
+                alert(message);
+              } finally {
+                setDownloadingPdf(false);
               }
             }}
-            className="px-4 py-2.5 bg-white border border-gray-200 text-gray-700 font-bold rounded-xl text-xs hover:bg-gray-50 hover:border-gray-300 transition-colors shadow-sm inline-flex items-center gap-2"
+            disabled={downloadingPdf}
+            className="px-4 py-2.5 bg-white border border-gray-200 text-gray-700 font-bold rounded-xl text-xs hover:bg-gray-50 hover:border-gray-300 transition-colors shadow-sm inline-flex items-center gap-2 disabled:bg-gray-100 disabled:text-gray-400"
           >
-            <Download className="w-4 h-4" /> Download PDF
+            <Download className="w-4 h-4" /> {downloadingPdf ? 'Generating PDF...' : 'Download PDF'}
           </button>
         </div>
       </div>
@@ -382,6 +417,35 @@ export default function ContractDetails() {
                 </div>
               </div>
             </div>
+
+            {contract.artisanAgreed && contract.internAgreed && (
+              <div className="mt-10 p-5 bg-emerald-50 border border-emerald-200 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-3 text-left">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
+                    <CheckCircle className="w-5 h-5 text-emerald-700" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-emerald-950 text-sm">Partnership Agreement is Fully Executed</h4>
+                    <p className="text-xs text-emerald-700">Both parties have digitally confirmed the terms and deliverables.</p>
+                  </div>
+                </div>
+                {contract.projectId ? (
+                  <Link
+                    to={`/projects/${contract.projectId}`}
+                    className="px-5 py-2.5 bg-emerald-700 text-white font-bold rounded-xl text-xs hover:bg-emerald-800 transition-colors shadow-sm inline-flex items-center gap-2 whitespace-nowrap"
+                  >
+                    Open Partnership Workspace <ArrowRight className="w-4 h-4" />
+                  </Link>
+                ) : (
+                  <button
+                    onClick={fetchContract}
+                    className="px-4 py-2 bg-emerald-100 text-emerald-800 font-bold rounded-xl text-xs hover:bg-emerald-200 transition-colors"
+                  >
+                    Refresh Workspace Link
+                  </button>
+                )}
+              </div>
+            )}
           </section>
 
         </div>

@@ -155,7 +155,7 @@ const getContractById = async (req, res) => {
       return res.status(403).json({ error: 'Unauthorized to view this contract' });
     }
 
-    // Proactively connect / self-heal Project relation if missing
+    // Proactively connect / self-heal Project relation if missing (Strictly deterministic)
     if (!contract.projectId) {
       let linkedProject = null;
       if (contract.requestId) {
@@ -164,13 +164,86 @@ const getContractById = async (req, res) => {
         });
       }
       if (!linkedProject) {
-        linkedProject = await prisma.project.findFirst({
+        const candidateProjects = await prisma.project.findMany({
           where: {
             artisanId: contract.artisanId,
             internId: contract.internId,
           },
-          orderBy: { createdAt: 'desc' },
         });
+        // ONLY link if exactly ONE unambiguous project exists between this pair
+        if (candidateProjects.length === 1) {
+          linkedProject = candidateProjects[0];
+        } else if (candidateProjects.length > 1) {
+          console.warn(`Ambiguous projects for contract ${contract.id}: found ${candidateProjects.length} candidate projects. Will not guess.`);
+        }
+      }
+
+      // If contract is active/agreed but project record was never created, deterministically create it now
+      if (!linkedProject && (contract.status === 'ACTIVE' || (contract.artisanAgreed && contract.internAgreed))) {
+        let reqId = contract.requestId;
+        let appId = null;
+
+        if (!reqId) {
+          const newReq = await prisma.managerRequest.create({
+            data: {
+              artisanId: contract.artisanId,
+              title: `Partnership: ${contract.title}`,
+              description: 'Growth and operational partnership.',
+              category: 'Growth Partnership',
+              status: 'IN_PROGRESS',
+            },
+          });
+          reqId = newReq.id;
+          const newApp = await prisma.application.create({
+            data: {
+              requestId: reqId,
+              internId: contract.internId,
+              message: 'Partnership initiated.',
+              status: 'ACCEPTED',
+            },
+          });
+          appId = newApp.id;
+        } else {
+          let existingApp = await prisma.application.findFirst({
+            where: { requestId: reqId, internId: contract.internId },
+          });
+          if (existingApp) {
+            if (existingApp.status !== 'ACCEPTED') {
+              await prisma.application.update({
+                where: { id: existingApp.id },
+                data: { status: 'ACCEPTED' },
+              });
+            }
+            appId = existingApp.id;
+          } else {
+            const newApp = await prisma.application.create({
+              data: {
+                requestId: reqId,
+                internId: contract.internId,
+                message: 'Partnership initiated.',
+                status: 'ACCEPTED',
+              },
+            });
+            appId = newApp.id;
+          }
+        }
+
+        // Check if project exists for reqId or appId
+        linkedProject = await prisma.project.findFirst({
+          where: { OR: [{ requestId: reqId }, { applicationId: appId }] }
+        });
+
+        if (!linkedProject) {
+          linkedProject = await prisma.project.create({
+            data: {
+              requestId: reqId,
+              applicationId: appId,
+              artisanId: contract.artisanId,
+              internId: contract.internId,
+              status: 'IN_PROGRESS',
+            },
+          });
+        }
       }
 
       if (linkedProject) {
@@ -250,23 +323,47 @@ const agreeContract = async (req, res) => {
           });
           appId = newApp.id;
         } else {
-          // If request exists, find the accepted application
-          const existingApp = await tx.application.findFirst({
-            where: { requestId: reqId, internId: contract.internId, status: 'ACCEPTED' },
+          // If request exists, ensure an ACCEPTED application exists
+          let existingApp = await tx.application.findFirst({
+            where: { requestId: reqId, internId: contract.internId },
           });
-          if (existingApp) appId = existingApp.id;
+          if (existingApp) {
+            if (existingApp.status !== 'ACCEPTED') {
+              await tx.application.update({
+                where: { id: existingApp.id },
+                data: { status: 'ACCEPTED' },
+              });
+            }
+            appId = existingApp.id;
+          } else {
+            const newApp = await tx.application.create({
+              data: {
+                requestId: reqId,
+                internId: contract.internId,
+                message: 'Partnership initiated.',
+                status: 'ACCEPTED',
+              },
+            });
+            appId = newApp.id;
+          }
         }
 
         if (reqId && appId) {
-          const project = await tx.project.create({
-            data: {
-              requestId: reqId,
-              applicationId: appId,
-              artisanId: contract.artisanId,
-              internId: contract.internId,
-              status: 'IN_PROGRESS',
-            },
+          // Check if project exists before creating
+          let project = await tx.project.findFirst({
+            where: { OR: [{ requestId: reqId }, { applicationId: appId }] }
           });
+          if (!project) {
+            project = await tx.project.create({
+              data: {
+                requestId: reqId,
+                applicationId: appId,
+                artisanId: contract.artisanId,
+                internId: contract.internId,
+                status: 'IN_PROGRESS',
+              },
+            });
+          }
           projectId = project.id;
           dataToUpdate.projectId = project.id;
           dataToUpdate.requestId = reqId; // Update contract's requestId too
@@ -372,26 +469,47 @@ const getContractPdf = async (req, res) => {
       include: {
         artisan: { include: { user: true } },
         intern: { include: { user: true } },
-        tasks: true,
+        tasks: { orderBy: { createdAt: 'asc' } },
       },
     });
 
     if (!contract) return res.status(404).json({ error: 'Contract not found' });
 
-    const isArtisan = contract.artisan.userId === req.user.id;
-    const isIntern = contract.intern.userId === req.user.id;
+    // Multi-factor authorization: checks user id against artisan/intern relation or role
+    const isArtisan = contract.artisan?.userId === req.user.id ||
+                      contract.artisanId === req.user.id ||
+                      (req.user.role === 'ARTISAN' && contract.artisan?.user?.phone === req.user.phone);
+    const isIntern = contract.intern?.userId === req.user.id ||
+                     contract.internId === req.user.id ||
+                     (req.user.role === 'INTERN' && contract.intern?.user?.phone === req.user.phone);
+    const isAdmin = req.user.role === 'ADMIN';
 
-    if (!isArtisan && !isIntern) {
-      return res.status(403).json({ error: 'Unauthorized to download this contract' });
+    if (!isArtisan && !isIntern && !isAdmin) {
+      return res.status(403).json({ error: 'Unauthorized to download this partnership agreement' });
     }
 
-    const doc = new PDFDocument({ margin: 50, size: 'A4' });
-    const filename = `Bharat-Bazaar-Partnership-Agreement-${contract.id}.pdf`;
+    const doc = new PDFDocument({ margin: 50, size: 'A4', bufferPages: true });
+    const chunks = [];
 
-    res.setHeader('Content-disposition', `attachment; filename="${filename}"`);
-    res.setHeader('Content-type', 'application/pdf');
+    doc.on('data', (chunk) => chunks.push(chunk));
+    doc.on('end', () => {
+      const pdfBuffer = Buffer.concat(chunks);
+      const safeRef = (contract.id || id).slice(0, 8).toUpperCase();
+      const filename = `Bharat-Bazaar-Partnership-Agreement-${safeRef}.pdf`;
 
-    doc.pipe(res);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.setHeader('Content-Length', pdfBuffer.length);
+      res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
+      return res.status(200).send(pdfBuffer);
+    });
+
+    doc.on('error', (pdfErr) => {
+      console.error('PDFKit stream error:', pdfErr);
+      if (!res.headersSent) {
+        return res.status(500).json({ error: 'Failed to generate partnership agreement PDF' });
+      }
+    });
 
     // HEADER
     doc.fontSize(18).font('Helvetica-Bold').fillColor('#78350f').text('BHARAT BAZAAR', { align: 'center' }); // amber-900
@@ -401,7 +519,10 @@ const getContractPdf = async (req, res) => {
     doc.fontSize(22).font('Times-Bold').fillColor('#111827').text('PARTNERSHIP AGREEMENT', { align: 'center' }); // gray-900
     doc.moveDown(0.5);
 
-    doc.fontSize(10).font('Helvetica-Bold').fillColor('#4b5563').text(`REF: ${contract.id.slice(0, 8).toUpperCase()}   |   DATE: ${new Date(contract.createdAt).toLocaleDateString('en-IN')}   |   STATUS: ${contract.status}`, { align: 'center' });
+    const safeContractId = contract.id || id;
+    const refCode = safeContractId.slice(0, 8).toUpperCase();
+    const createdDate = contract.createdAt ? new Date(contract.createdAt).toLocaleDateString('en-IN') : new Date().toLocaleDateString('en-IN');
+    doc.fontSize(10).font('Helvetica-Bold').fillColor('#4b5563').text(`REF: ${refCode}   |   DATE: ${createdDate}   |   STATUS: ${contract.status || 'ACTIVE'}`, { align: 'center' });
     doc.moveDown(2);
 
     const drawLine = () => {
@@ -415,17 +536,21 @@ const getContractPdf = async (req, res) => {
 
     const partyY = doc.y;
 
-    // Client
+    // Client / Artisan
+    const artisanName = contract.artisan?.user?.name || 'Artisan Partner';
+    const artisanLoc = contract.artisan?.location || contract.artisan?.state || '';
     doc.fontSize(10).font('Helvetica-Bold').fillColor('#6b7280').text('Client / Business Owner', 50, partyY);
-    doc.fontSize(14).font('Times-Bold').fillColor('#111827').text(contract.artisan.user.name, 50, doc.y + 5);
+    doc.fontSize(14).font('Times-Bold').fillColor('#111827').text(artisanName, 50, doc.y + 5);
     doc.fontSize(10).font('Helvetica').fillColor('#4b5563').text('Business/Brand Owner', 50, doc.y + 2);
-    if (contract.artisan.location) doc.text(contract.artisan.location, 50, doc.y + 2);
+    if (artisanLoc) doc.text(artisanLoc, 50, doc.y + 2);
 
-    // Manager
+    // Growth Manager
+    const internName = contract.intern?.user?.name || 'Growth Manager Partner';
+    const internCollege = contract.intern?.college || contract.intern?.institution || '';
     doc.fontSize(10).font('Helvetica-Bold').fillColor('#6b7280').text('Growth Manager / Partner', 300, partyY);
-    doc.fontSize(14).font('Times-Bold').fillColor('#111827').text(contract.intern.user.name, 300, doc.y + 5);
+    doc.fontSize(14).font('Times-Bold').fillColor('#111827').text(internName, 300, doc.y + 5);
     doc.fontSize(10).font('Helvetica').fillColor('#4b5563').text('Professional Growth Partner', 300, doc.y + 2);
-    if (contract.intern.institution) doc.text(contract.intern.institution, 300, doc.y + 2);
+    if (internCollege) doc.text(internCollege, 300, doc.y + 2);
 
     doc.moveDown(2);
     doc.x = 50;
@@ -433,13 +558,16 @@ const getContractPdf = async (req, res) => {
     // 1. PURPOSE
     doc.fontSize(12).font('Helvetica-Bold').fillColor('#9ca3af').text('1. PURPOSE OF THE PARTNERSHIP', { tracking: 2 });
     drawLine();
-    doc.fontSize(10).font('Times-Roman').fillColor('#374151').text(contract.description || `The purpose of this agreement is to define the terms of the growth and operational partnership regarding: ${contract.title}. Both parties commit to collaborating professionally through the Bharat Bazaar platform.`, { lineGap: 4 });
+    doc.fontSize(10).font('Times-Roman').fillColor('#374151').text(
+      contract.description || `The purpose of this agreement is to define the terms of the growth and operational partnership regarding: ${contract.title || 'Digital Growth'}. Both parties commit to collaborating professionally through the Bharat Bazaar platform.`,
+      { lineGap: 4 }
+    );
     doc.moveDown(2);
 
     // 2. SCOPE OF WORK
     doc.fontSize(12).font('Helvetica-Bold').fillColor('#9ca3af').text('2. SCOPE OF WORK', { tracking: 2 });
     drawLine();
-    if (contract.responsibilities && contract.responsibilities.length > 0) {
+    if (Array.isArray(contract.responsibilities) && contract.responsibilities.length > 0) {
       contract.responsibilities.forEach((resp) => {
         doc.fontSize(10).font('Times-Roman').fillColor('#374151').text(`•  ${resp}`, { lineGap: 4, indent: 10 });
       });
@@ -451,11 +579,12 @@ const getContractPdf = async (req, res) => {
     // 3. DELIVERABLES
     doc.fontSize(12).font('Helvetica-Bold').fillColor('#9ca3af').text('3. DELIVERABLES (EXECUTION PLAN)', { tracking: 2 });
     drawLine();
-    if (contract.tasks && contract.tasks.length > 0) {
+    if (Array.isArray(contract.tasks) && contract.tasks.length > 0) {
       contract.tasks.forEach((task) => {
         const dateStr = task.dueDate ? new Date(task.dueDate).toLocaleDateString('en-IN') : 'No Date';
         const statusStr = task.isCompleted ? 'DONE' : 'PENDING';
-        doc.fontSize(10).font('Times-Roman').fillColor('#374151').text(`[${statusStr}] ${task.title} (Due: ${dateStr})`, { lineGap: 4, indent: 10 });
+        const roleStr = task.assignedRole ? ` [${task.assignedRole}]` : '';
+        doc.fontSize(10).font('Times-Roman').fillColor('#374151').text(`[${statusStr}] ${task.title}${roleStr} (Due: ${dateStr})`, { lineGap: 4, indent: 10 });
       });
     } else {
       doc.fontSize(10).font('Times-Italic').fillColor('#374151').text('No deliverables have been formally attached to this document yet. Both parties may define deliverables within the workspace.');
@@ -473,11 +602,11 @@ const getContractPdf = async (req, res) => {
     // 5. COMMERCIAL TERMS
     doc.fontSize(12).font('Helvetica-Bold').fillColor('#9ca3af').text('5. COMMERCIAL TERMS', { tracking: 2 });
     drawLine();
-    doc.fontSize(10).font('Times-Roman').fillColor('#374151').text(`Engagement Type: ${contract.paymentType}`, { lineGap: 4 });
-    doc.text(`Agreed Value: ${contract.paymentAmount ? 'Rs. ' + contract.paymentAmount : 'Pro Bono / Mutual Agreement'}`, { lineGap: 4 });
+    doc.fontSize(10).font('Times-Roman').fillColor('#374151').text(`Engagement Type: ${contract.paymentType || 'FIXED'}`, { lineGap: 4 });
+    doc.text(`Agreed Value: ${contract.paymentAmount !== null && contract.paymentAmount !== undefined && contract.paymentAmount > 0 ? 'Rs. ' + contract.paymentAmount : 'Pro Bono / Mutual Agreement'}`, { lineGap: 4 });
     doc.moveDown(2);
 
-    // 6. REPORTING & COMMUNICATION
+    // 6. REPORTING & COLLABORATION GUIDELINES
     doc.fontSize(12).font('Helvetica-Bold').fillColor('#9ca3af').text('6. COLLABORATION GUIDELINES', { tracking: 2 });
     drawLine();
     doc.fontSize(10).font('Times-Roman').fillColor('#374151').text('Reporting: The Growth Manager is expected to submit periodic performance updates via the "Partnership Reports" module in the workspace.', { lineGap: 4 });
@@ -491,7 +620,7 @@ const getContractPdf = async (req, res) => {
     doc.fontSize(10).font('Times-Italic').fillColor('#6b7280').text('By utilizing this service, both parties acknowledge that Bharat Bazaar operates solely as a facilitator providing digital tools, analytics, and infrastructure for this partnership. Bharat Bazaar is not a legal party to this specific agreement and this document serves as a structured digital record of the mutually agreed scope between the Client and Growth Manager.', { lineGap: 4 });
     doc.moveDown(3);
 
-    // 8. SIGNATURE
+    // 8. SIGNATURES
     doc.fontSize(12).font('Helvetica-Bold').fillColor('#9ca3af').text('8. DIGITAL ACKNOWLEDGEMENT & SIGNATURES', { tracking: 2, align: 'center' });
     doc.moveDown(1);
 
@@ -499,7 +628,7 @@ const getContractPdf = async (req, res) => {
 
     // Client Signature
     if (contract.artisanAgreed) {
-      doc.fontSize(16).font('Times-Italic').fillColor('#111827').text(contract.artisan.user.name, 50, sigY);
+      doc.fontSize(16).font('Times-Italic').fillColor('#111827').text(artisanName, 50, sigY);
       doc.fontSize(10).font('Helvetica-Bold').fillColor('#059669').text('Digitally Verified', 50, sigY + 20);
     } else {
       doc.fontSize(10).font('Helvetica-Bold').fillColor('#d97706').text('Pending Signature', 50, sigY + 20);
@@ -509,7 +638,7 @@ const getContractPdf = async (req, res) => {
 
     // Manager Signature
     if (contract.internAgreed) {
-      doc.fontSize(16).font('Times-Italic').fillColor('#111827').text(contract.intern.user.name, 300, sigY);
+      doc.fontSize(16).font('Times-Italic').fillColor('#111827').text(internName, 300, sigY);
       doc.fontSize(10).font('Helvetica-Bold').fillColor('#059669').text('Digitally Verified', 300, sigY + 20);
     } else {
       doc.fontSize(10).font('Helvetica-Bold').fillColor('#d97706').text('Pending Signature', 300, sigY + 20);
@@ -517,14 +646,14 @@ const getContractPdf = async (req, res) => {
     doc.moveTo(300, sigY + 40).lineTo(450, sigY + 40).strokeColor('#111827').stroke();
     doc.fontSize(10).font('Helvetica-Bold').fillColor('#6b7280').text('Growth Partner Signature', 300, sigY + 45);
 
-    // Footer
-    let pages = doc.bufferedPageRange();
+    // Footer - Safe pagination across buffered pages
+    const pages = doc.bufferedPageRange();
     for (let i = 0; i < pages.count; i++) {
       doc.switchToPage(i);
       doc.fontSize(8).font('Helvetica').fillColor('#9ca3af').text(
-        `Bharat Bazaar Platform-Facilitated Partnership Agreement • Document Ref: ${contract.id} • Page ${i + 1} of ${pages.count}`,
+        `Bharat Bazaar Platform-Facilitated Partnership Agreement • Document Ref: ${safeContractId} • Page ${i + 1} of ${pages.count}`,
         50,
-        doc.page.height - 50,
+        doc.page.height - 40,
         { align: 'center' }
       );
     }
@@ -534,7 +663,7 @@ const getContractPdf = async (req, res) => {
   } catch (error) {
     console.error('PDF generation error:', error);
     if (!res.headersSent) {
-      res.status(500).json({ error: 'Failed to generate PDF' });
+      res.status(500).json({ error: 'Failed to generate PDF agreement. Please try again.' });
     }
   }
 };
