@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { Lock, Phone, ArrowRight, ShoppingBag } from 'lucide-react';
@@ -8,6 +8,7 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loadingHint, setLoadingHint] = useState('');
 
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -112,7 +113,7 @@ export default function Login() {
             disabled={loading}
             className="w-full py-3.5 bg-amber-700 text-white font-bold rounded-xl text-sm hover:bg-amber-800 transition-colors shadow-lg shadow-amber-700/20 flex items-center justify-center gap-2 disabled:bg-gray-400"
           >
-            {loading ? 'Verifying & Signing In...' : 'Sign In'}
+            {loading ? (<><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Signing In&hellip;</>) : 'Sign In'}
             <ArrowRight className="w-4 h-4" />
           </button>
         </form>

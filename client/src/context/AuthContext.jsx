@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+﻿import { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 
 const AuthContext = createContext();
@@ -55,7 +55,7 @@ export const AuthProvider = ({ children }) => {
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
         const res = await axios.post(`${apiUrl}/api/auth/login`, payload, {
-          timeout: 20000,
+          timeout: 35000,
         });
         setToken(res.data.token);
         setUser(res.data.user);
@@ -75,7 +75,7 @@ export const AuthProvider = ({ children }) => {
         }
 
         // Wait before retrying (1200ms)
-        await new Promise((r) => setTimeout(r, 1200));
+        await new Promise((r) => setTimeout(r, 2000));
       }
     }
 

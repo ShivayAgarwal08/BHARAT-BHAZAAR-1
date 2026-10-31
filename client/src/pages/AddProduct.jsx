@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+﻿import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import { Mic, MicOff, Sparkles, AlertCircle } from 'lucide-react';
@@ -100,11 +100,16 @@ export default function AddProduct() {
   };
 
   const generateListing = async () => {
-    if (!voiceText.trim()) return;
+    if (!voiceText.trim() || aiLoading) return; // prevent double-submit
     setAiLoading(true);
     setAiError('');
+    const originalVoiceText = voiceText; // preserve for recovery on error
     try {
-      const res = await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/products/generate`, { text: voiceText });
+      const res = await axios.post(
+        `${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/api/products/generate`,
+        { text: voiceText },
+        { timeout: 45000 } // 45 s client-side timeout
+      );
       setFormData({
         title: res.data.title,
         description: res.data.description,
@@ -115,12 +120,21 @@ export default function AddProduct() {
       // Clear voice text so they can see the generated form clearly
       setVoiceText('');
     } catch (err) {
-      setAiError(err.response?.data?.error || 'We couldn\'t create the listing automatically. You can enter the details manually.');
+      // Restore voice text so the user does not lose their input
+      setVoiceText(originalVoiceText);
+      if (err.code === 'ECONNABORTED' || err.code === 'ERR_CANCELED') {
+        setAiError('The AI took too long to respond. Please try again, or enter the details manually below.');
+      } else if (err.response?.data?.code === 'GENERATION_IN_PROGRESS') {
+        setAiError('A listing is already being generated. Please wait for it to complete.');
+      } else if (err.response?.status === 429 || err.response?.data?.code === 'AI_RATE_LIMITED') {
+        setAiError('AI service is busy right now. Please wait 30 seconds and try again.');
+      } else {
+        setAiError(err.response?.data?.error || "We couldn't create the listing automatically. You can enter the details manually below.");
+      }
     } finally {
       setAiLoading(false);
     }
   };
-
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
@@ -221,11 +235,9 @@ export default function AddProduct() {
               className="btn-primary py-3 px-8 flex items-center gap-2 disabled:opacity-50"
             >
               {aiLoading ? (
-                <>Creating Listing...</>
+                <span className="flex items-center gap-2"><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Generating listing&hellip;</span>
               ) : (
-                <>
-                  <Sparkles size={18} /> Let us create your listing
-                </>
+                <><Sparkles size={18} /> Let us create your listing</>
               )}
             </button>
           </div>

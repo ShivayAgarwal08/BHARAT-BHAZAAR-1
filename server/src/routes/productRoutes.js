@@ -4,13 +4,14 @@ const { requireAuth } = require('../middleware/authMiddleware');
 const { upload, processImage } = require('../middleware/uploadMiddleware');
 const productController = require('../controllers/productController');
 const aiController = require('../controllers/aiController');
+const { aiLimiter } = require('../middleware/securityMiddleware');
 
 // Public routes
 router.get('/', productController.getAllProducts);
 router.get('/:id', productController.getProductById);
 
 // Protected routes (Artisan only)
-router.post('/generate', requireAuth, aiController.generateProduct);
+router.post('/generate', aiLimiter, requireAuth, aiController.generateProduct);
 
 router.post(
   '/',

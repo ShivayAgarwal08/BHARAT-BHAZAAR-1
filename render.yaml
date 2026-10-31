@@ -5,6 +5,9 @@ services:
     rootDir: server
     buildCommand: npm install && npx prisma generate
     startCommand: npm start
+    # healthCheckPath tells Render to use the lightweight /api/ping probe
+    # instead of the root route, and confirms the app is ready before routing traffic.
+    healthCheckPath: /api/ping
     envVars:
       - key: DATABASE_URL
         sync: false
@@ -13,6 +16,8 @@ services:
       - key: GEMINI_API_KEY
         sync: false
       - key: AI_MODEL
-        value: gemini-2.5-flash
+        value: gemini-3.8-flash
       - key: CLIENT_URL
         sync: false
+      - key: NODE_ENV
+        value: production

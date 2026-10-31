@@ -2,9 +2,10 @@ const express = require('express');
 const router = express.Router();
 const prisma = require('../prisma');
 const { requireAuth, requireRole } = require('../middleware/authMiddleware');
+const { assistanceLimiter } = require('../middleware/securityMiddleware');
 
 // Public route to submit an artisan assistance request
-router.post('/artisan', async (req, res) => {
+router.post('/artisan', assistanceLimiter, async (req, res) => {
   const { name, phone, language, location, state, craft, message } = req.body;
 
   if (!name || !phone || !language || !location || !state || !craft) {
