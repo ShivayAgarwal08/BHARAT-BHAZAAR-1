@@ -1,7 +1,8 @@
-import { Routes, Route, Link, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import { useCart } from './context/CartContext';
-import { ShoppingBag, Package, UserCheck, LogOut, UserPlus, LogIn } from 'lucide-react';
+import { ShoppingBag, Package, UserCheck, LogOut, UserPlus, LogIn, Menu, X, Sparkles, Heart } from 'lucide-react';
 
 import Home from './pages/Home';
 import Login from './pages/Login';
@@ -28,31 +29,39 @@ function App() {
   const { user, logout, loading } = useAuth();
   const { itemCount } = useCart();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
     navigate('/');
+    setMobileMenuOpen(false);
+  };
+
+  const isActive = (path) => {
+    if (path === '/') return location.pathname === '/';
+    return location.pathname.startsWith(path);
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-stone-50">
+      <div className="min-h-screen flex items-center justify-center bg-[#faf8f5]">
         <div className="text-center space-y-6 max-w-sm px-6">
-          <div className="w-20 h-20 bg-amber-800 text-white rounded-3xl flex items-center justify-center text-4xl font-black mx-auto shadow-2xl relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-tr from-amber-900 to-amber-700"></div>
+          <div className="w-16 h-16 bg-[#0b634e] text-white rounded-2xl flex items-center justify-center text-2xl font-black mx-auto shadow-xl shadow-[#0b634e]/20 relative overflow-hidden font-display">
+            <div className="absolute inset-0 bg-gradient-to-tr from-[#06372b] to-[#0e7b62]"></div>
             <span className="relative z-10">BB</span>
           </div>
-          <div className="space-y-2">
-            <h1 className="text-2xl font-black tracking-tight text-gray-900">Bharat Bazaar</h1>
-            <p className="text-sm font-medium text-amber-800 uppercase tracking-widest">
-              Local craft. Limitless possibilities.
+          <div className="space-y-1.5">
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 font-display">Bharat Bazaar</h1>
+            <p className="text-xs font-semibold text-[#0b634e] uppercase tracking-widest">
+              Local craft • Limitless possibilities
             </p>
           </div>
-          <div className="pt-4 flex justify-center">
+          <div className="pt-2 flex justify-center">
             <div className="flex gap-1.5">
-              <div className="w-2 h-2 rounded-full bg-amber-700 animate-bounce" style={{ animationDelay: '0ms' }}></div>
-              <div className="w-2 h-2 rounded-full bg-amber-700 animate-bounce" style={{ animationDelay: '150ms' }}></div>
-              <div className="w-2 h-2 rounded-full bg-amber-700 animate-bounce" style={{ animationDelay: '300ms' }}></div>
+              <div className="w-2 h-2 rounded-full bg-[#0b634e] animate-bounce" style={{ animationDelay: '0ms' }}></div>
+              <div className="w-2 h-2 rounded-full bg-[#0b634e] animate-bounce" style={{ animationDelay: '150ms' }}></div>
+              <div className="w-2 h-2 rounded-full bg-[#0b634e] animate-bounce" style={{ animationDelay: '300ms' }}></div>
             </div>
           </div>
         </div>
@@ -61,39 +70,66 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50/50 text-gray-800 font-sans">
-      {/* Header Bar */}
-      <header className="bg-white/90 backdrop-blur-md sticky top-0 z-40 border-b border-gray-100 shadow-sm">
+    <div className="min-h-screen flex flex-col bg-[#faf8f5] text-slate-800 font-sans selection:bg-[#e3f6f0] selection:text-[#06372b]">
+      {/* Top Banner Accent */}
+      <div className="bg-[#06372b] text-emerald-100 text-[11px] font-medium py-1.5 px-4 text-center border-b border-[#0b634e]/40 hidden sm:block">
+        <span className="inline-flex items-center gap-1.5">
+          <Sparkles className="w-3 h-3 text-amber-400" />
+          Directly empowering 1,200+ Indian rural artisans & university student growth partners
+        </span>
+      </div>
+
+      {/* Main Header / Navigation */}
+      <header className="bg-white/95 backdrop-blur-md sticky top-0 z-40 border-b border-[#e8e2d8] shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
             {/* Logo */}
-            <Link to="/" className="flex items-center gap-2 group">
-              <div className="w-10 h-10 rounded-2xl bg-amber-800 text-white font-black flex items-center justify-center text-lg shadow-md group-hover:bg-amber-900 transition-colors">
-                BB
+            <Link to="/" className="flex items-center gap-3 group" onClick={() => setMobileMenuOpen(false)}>
+              <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#06372b] to-[#0b634e] text-white font-black flex items-center justify-center text-lg shadow-md shadow-[#0b634e]/15 group-hover:scale-[1.02] transition-transform font-display relative">
+                <span>BB</span>
+                <span className="w-2 h-2 rounded-full bg-amber-400 absolute -bottom-0.5 -right-0.5 border-2 border-white"></span>
               </div>
               <div className="flex flex-col">
-                <span className="text-xl font-black tracking-tight text-gray-900 group-hover:text-amber-800 transition-colors">
+                <span className="text-xl font-bold tracking-tight text-slate-900 group-hover:text-[#0b634e] transition-colors font-display">
                   Bharat Bazaar
                 </span>
-                <span className="text-[10px] text-amber-800 font-bold uppercase tracking-widest -mt-1">
-                  Craft & Growth
+                <span className="text-[10px] text-[#0b634e] font-bold uppercase tracking-wider -mt-0.5">
+                  Artisans & Growth
                 </span>
               </div>
             </Link>
 
-            {/* Navigation Links */}
-            <nav className="flex items-center gap-2 sm:gap-5">
+            {/* Desktop Navigation Links */}
+            <nav className="hidden md:flex items-center gap-1 lg:gap-2">
               {!user && (
                 <>
                   <Link
                     to="/marketplace"
-                    className="text-xs sm:text-sm font-semibold text-gray-700 hover:text-amber-800 transition-colors px-3 py-2 rounded-xl hover:bg-amber-50/50"
+                    className={`text-sm font-semibold px-3.5 py-2 rounded-xl transition-all ${
+                      isActive('/marketplace')
+                        ? 'bg-[#e3f6f0] text-[#06372b]'
+                        : 'text-slate-700 hover:text-[#0b634e] hover:bg-[#faf6ef]'
+                    }`}
                   >
                     Marketplace
                   </Link>
                   <Link
+                    to="/growth-managers"
+                    className={`text-sm font-semibold px-3.5 py-2 rounded-xl transition-all ${
+                      isActive('/growth-managers')
+                        ? 'bg-[#e3f6f0] text-[#06372b]'
+                        : 'text-slate-700 hover:text-[#0b634e] hover:bg-[#faf6ef]'
+                    }`}
+                  >
+                    Growth Managers
+                  </Link>
+                  <Link
                     to="/about"
-                    className="text-xs sm:text-sm font-semibold text-gray-700 hover:text-amber-800 transition-colors px-3 py-2 rounded-xl hover:bg-amber-50/50 hidden md:inline"
+                    className={`text-sm font-semibold px-3.5 py-2 rounded-xl transition-all ${
+                      isActive('/about')
+                        ? 'bg-[#e3f6f0] text-[#06372b]'
+                        : 'text-slate-700 hover:text-[#0b634e] hover:bg-[#faf6ef]'
+                    }`}
                   >
                     About Us
                   </Link>
@@ -104,9 +140,24 @@ function App() {
                 <>
                   <Link
                     to="/marketplace"
-                    className="text-xs sm:text-sm font-semibold text-gray-700 hover:text-amber-800 transition-colors px-3 py-2 rounded-xl hover:bg-amber-50/50"
+                    className={`text-sm font-semibold px-3.5 py-2 rounded-xl transition-all ${
+                      isActive('/marketplace')
+                        ? 'bg-[#e3f6f0] text-[#06372b]'
+                        : 'text-slate-700 hover:text-[#0b634e] hover:bg-[#faf6ef]'
+                    }`}
                   >
-                    Shop
+                    Explore Shop
+                  </Link>
+                  <Link
+                    to="/orders"
+                    className={`text-sm font-semibold px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 ${
+                      isActive('/orders')
+                        ? 'bg-[#e3f6f0] text-[#06372b]'
+                        : 'text-slate-700 hover:text-[#0b634e] hover:bg-[#faf6ef]'
+                    }`}
+                  >
+                    <Package className="w-4 h-4 text-[#0b634e]" />
+                    My Orders
                   </Link>
                 </>
               )}
@@ -115,16 +166,34 @@ function App() {
                 <>
                   <Link
                     to="/dashboard"
-                    className="text-xs sm:text-sm font-semibold text-gray-700 hover:text-amber-800 transition-colors px-3 py-2 rounded-xl hover:bg-amber-50/50"
+                    className={`text-sm font-semibold px-3.5 py-2 rounded-xl transition-all ${
+                      isActive('/dashboard') && !location.pathname.includes('/add-product')
+                        ? 'bg-[#e3f6f0] text-[#06372b]'
+                        : 'text-slate-700 hover:text-[#0b634e] hover:bg-[#faf6ef]'
+                    }`}
                   >
-                    My Shop
+                    My Shop Dashboard
                   </Link>
                   <Link
                     to="/growth-managers"
-                    className="text-xs sm:text-sm font-semibold text-gray-700 hover:text-amber-800 transition-colors px-3 py-2 rounded-xl hover:bg-amber-50/50 flex items-center gap-1"
+                    className={`text-sm font-semibold px-3.5 py-2 rounded-xl transition-all flex items-center gap-1.5 ${
+                      isActive('/growth-managers')
+                        ? 'bg-[#e3f6f0] text-[#06372b]'
+                        : 'text-slate-700 hover:text-[#0b634e] hover:bg-[#faf6ef]'
+                    }`}
                   >
-                    <UserCheck className="w-3.5 h-3.5 text-amber-700" />
-                    Find a Manager
+                    <UserCheck className="w-4 h-4 text-[#0b634e]" />
+                    Find Growth Manager
+                  </Link>
+                  <Link
+                    to="/marketplace"
+                    className={`text-sm font-semibold px-3.5 py-2 rounded-xl transition-all ${
+                      isActive('/marketplace')
+                        ? 'bg-[#e3f6f0] text-[#06372b]'
+                        : 'text-slate-700 hover:text-[#0b634e] hover:bg-[#faf6ef]'
+                    }`}
+                  >
+                    Marketplace
                   </Link>
                 </>
               )}
@@ -133,92 +202,252 @@ function App() {
                 <>
                   <Link
                     to="/dashboard"
-                    className="text-xs sm:text-sm font-semibold text-gray-700 hover:text-amber-800 transition-colors px-3 py-2 rounded-xl hover:bg-amber-50/50"
+                    className={`text-sm font-semibold px-3.5 py-2 rounded-xl transition-all ${
+                      isActive('/dashboard')
+                        ? 'bg-[#e3f6f0] text-[#06372b]'
+                        : 'text-slate-700 hover:text-[#0b634e] hover:bg-[#faf6ef]'
+                    }`}
                   >
-                    Workspace
+                    Manager Workspace
+                  </Link>
+                  <Link
+                    to="/growth-managers"
+                    className={`text-sm font-semibold px-3.5 py-2 rounded-xl transition-all ${
+                      isActive('/growth-managers')
+                        ? 'bg-[#e3f6f0] text-[#06372b]'
+                        : 'text-slate-700 hover:text-[#0b634e] hover:bg-[#faf6ef]'
+                    }`}
+                  >
+                    Open Requests
                   </Link>
                   <Link
                     to="/marketplace"
-                    className="text-xs sm:text-sm font-semibold text-gray-700 hover:text-amber-800 transition-colors px-3 py-2 rounded-xl hover:bg-amber-50/50"
+                    className={`text-sm font-semibold px-3.5 py-2 rounded-xl transition-all ${
+                      isActive('/marketplace')
+                        ? 'bg-[#e3f6f0] text-[#06372b]'
+                        : 'text-slate-700 hover:text-[#0b634e] hover:bg-[#faf6ef]'
+                    }`}
                   >
                     Marketplace
                   </Link>
                 </>
               )}
+            </nav>
+
+            {/* Desktop Actions */}
+            <div className="hidden md:flex items-center gap-3">
+              {/* Cart Button */}
+              {(!user || user.role === 'CUSTOMER') && (
+                <Link
+                  to="/cart"
+                  className="relative p-2.5 text-slate-700 hover:text-[#0b634e] rounded-xl hover:bg-[#faf6ef] transition-colors"
+                  title="Shopping Cart"
+                >
+                  <ShoppingBag className="w-5 h-5 text-[#0b634e]" />
+                  {itemCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-amber-600 text-white text-[10px] font-extrabold w-5 h-5 rounded-full flex items-center justify-center shadow-sm">
+                      {itemCount}
+                    </span>
+                  )}
+                </Link>
+              )}
 
               {user ? (
-                <>
-                  {user.role === 'CUSTOMER' && (
-                    <Link
-                      to="/orders"
-                      className="text-xs sm:text-sm font-semibold text-gray-700 hover:text-amber-800 transition-colors px-3 py-2 rounded-xl hover:bg-amber-50/50 flex items-center gap-1"
-                    >
-                      <Package className="w-3.5 h-3.5 text-amber-700" />
-                      Orders
-                    </Link>
-                  )}
-
-                  {/* Cart Link with Badge */}
-                  {user.role === 'CUSTOMER' && (
-                    <Link
-                      to="/cart"
-                      className="relative p-2 text-gray-700 hover:text-amber-800 transition-colors rounded-xl hover:bg-amber-50/50"
-                      title="Shopping Cart"
-                    >
-                      <ShoppingBag className="w-5 h-5 text-amber-800" />
-                      {itemCount > 0 && (
-                        <span className="absolute -top-1 -right-1 bg-amber-700 text-white text-[10px] font-extrabold w-5 h-5 rounded-full flex items-center justify-center shadow">
-                          {itemCount}
-                        </span>
-                      )}
-                    </Link>
-                  )}
-
-                  <div className="flex items-center gap-3 pl-2 border-l border-gray-100">
-                    <span className="text-xs font-bold text-gray-700 hidden md:inline">
-                      Account: {user.name}
+                <div className="flex items-center gap-3 pl-3 border-l border-[#e8e2d8]">
+                  <div className="flex flex-col text-right">
+                    <span className="text-xs font-bold text-slate-900 truncate max-w-[140px]">
+                      {user.name}
                     </span>
-                    <button
-                      onClick={handleLogout}
-                      className="p-2 text-gray-400 hover:text-red-600 transition-colors rounded-xl hover:bg-red-50"
-                      title="Sign Out"
-                    >
-                      <LogOut className="w-4 h-4" />
-                    </button>
+                    <span className="text-[10px] font-semibold text-[#0b634e] uppercase tracking-wider">
+                      {user.role === 'INTERN' ? 'Growth Manager' : user.role === 'ARTISAN' ? 'Artisan' : 'Customer'}
+                    </span>
                   </div>
-                </>
-              ) : (
-                <div className="flex items-center gap-2 sm:gap-3">
-                  <Link
-                    to="/cart"
-                    className="relative p-2 text-gray-700 hover:text-amber-800 transition-colors rounded-xl hover:bg-amber-50/50"
+                  <button
+                    onClick={handleLogout}
+                    className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors"
+                    title="Sign Out"
                   >
-                    <ShoppingBag className="w-5 h-5 text-amber-800" />
-                    {itemCount > 0 && (
-                      <span className="absolute -top-1 -right-1 bg-amber-700 text-white text-[10px] font-extrabold w-5 h-5 rounded-full flex items-center justify-center">
-                        {itemCount}
-                      </span>
-                    )}
-                  </Link>
+                    <LogOut className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
                   <Link
                     to="/login"
-                    className="text-xs font-bold text-gray-700 hover:text-amber-800 px-3 py-2 rounded-xl hover:bg-amber-50/50 flex items-center gap-1"
+                    className="text-xs font-bold text-slate-700 hover:text-[#0b634e] px-3.5 py-2 rounded-xl hover:bg-[#faf6ef] transition-colors flex items-center gap-1.5"
                   >
-                    <LogIn className="w-3.5 h-3.5 text-amber-700" />
+                    <LogIn className="w-3.5 h-3.5 text-[#0b634e]" />
                     Sign In
                   </Link>
                   <Link
                     to="/register"
-                    className="px-4 py-2 bg-amber-800 text-white text-xs font-bold rounded-xl hover:bg-amber-900 transition-all shadow-sm flex items-center gap-1"
+                    className="btn-primary py-2 px-4 text-xs font-bold shadow-sm flex items-center gap-1.5"
                   >
                     <UserPlus className="w-3.5 h-3.5" />
-                    Create Account
+                    Join Platform
                   </Link>
                 </div>
               )}
-            </nav>
+            </div>
+
+            {/* Mobile Menu Button */}
+            <div className="flex md:hidden items-center gap-2">
+              {(!user || user.role === 'CUSTOMER') && (
+                <Link
+                  to="/cart"
+                  className="relative p-2 text-slate-700 hover:text-[#0b634e]"
+                >
+                  <ShoppingBag className="w-5 h-5 text-[#0b634e]" />
+                  {itemCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-amber-600 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                      {itemCount}
+                    </span>
+                  )}
+                </Link>
+              )}
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="p-2 text-slate-700 hover:text-[#0b634e] rounded-xl hover:bg-[#faf6ef]"
+                aria-label="Toggle Navigation"
+              >
+                {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              </button>
+            </div>
           </div>
         </div>
+
+        {/* Mobile Navigation Drawer */}
+        {mobileMenuOpen && (
+          <div className="md:hidden border-t border-[#e8e2d8] bg-white px-4 pt-4 pb-6 space-y-3 shadow-lg">
+            {!user && (
+              <>
+                <Link
+                  to="/marketplace"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="block text-sm font-semibold text-slate-800 py-2 px-3 rounded-lg hover:bg-[#faf6ef]"
+                >
+                  Marketplace
+                </Link>
+                <Link
+                  to="/growth-managers"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="block text-sm font-semibold text-slate-800 py-2 px-3 rounded-lg hover:bg-[#faf6ef]"
+                >
+                  Growth Managers
+                </Link>
+                <Link
+                  to="/about"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="block text-sm font-semibold text-slate-800 py-2 px-3 rounded-lg hover:bg-[#faf6ef]"
+                >
+                  About Us
+                </Link>
+                <div className="pt-3 border-t border-slate-100 flex flex-col gap-2">
+                  <Link
+                    to="/login"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="btn-secondary w-full text-center text-xs py-2.5"
+                  >
+                    Sign In
+                  </Link>
+                  <Link
+                    to="/register"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="btn-primary w-full text-center text-xs py-2.5"
+                  >
+                    Join Platform
+                  </Link>
+                </div>
+              </>
+            )}
+
+            {user?.role === 'CUSTOMER' && (
+              <>
+                <Link
+                  to="/marketplace"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="block text-sm font-semibold text-slate-800 py-2 px-3 rounded-lg hover:bg-[#faf6ef]"
+                >
+                  Explore Shop
+                </Link>
+                <Link
+                  to="/orders"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="block text-sm font-semibold text-slate-800 py-2 px-3 rounded-lg hover:bg-[#faf6ef]"
+                >
+                  My Orders
+                </Link>
+              </>
+            )}
+
+            {user?.role === 'ARTISAN' && (
+              <>
+                <Link
+                  to="/dashboard"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="block text-sm font-semibold text-slate-800 py-2 px-3 rounded-lg hover:bg-[#faf6ef]"
+                >
+                  My Shop Dashboard
+                </Link>
+                <Link
+                  to="/growth-managers"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="block text-sm font-semibold text-slate-800 py-2 px-3 rounded-lg hover:bg-[#faf6ef]"
+                >
+                  Find Growth Manager
+                </Link>
+                <Link
+                  to="/marketplace"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="block text-sm font-semibold text-slate-800 py-2 px-3 rounded-lg hover:bg-[#faf6ef]"
+                >
+                  Marketplace
+                </Link>
+              </>
+            )}
+
+            {user?.role === 'INTERN' && (
+              <>
+                <Link
+                  to="/dashboard"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="block text-sm font-semibold text-slate-800 py-2 px-3 rounded-lg hover:bg-[#faf6ef]"
+                >
+                  Manager Workspace
+                </Link>
+                <Link
+                  to="/growth-managers"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="block text-sm font-semibold text-slate-800 py-2 px-3 rounded-lg hover:bg-[#faf6ef]"
+                >
+                  Open Requests
+                </Link>
+                <Link
+                  to="/marketplace"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="block text-sm font-semibold text-slate-800 py-2 px-3 rounded-lg hover:bg-[#faf6ef]"
+                >
+                  Marketplace
+                </Link>
+              </>
+            )}
+
+            {user && (
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-between px-3">
+                <div>
+                  <span className="block text-xs font-bold text-slate-900">{user.name}</span>
+                  <span className="text-[10px] text-[#0b634e] font-semibold uppercase">{user.role}</span>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="text-xs font-bold text-red-600 hover:text-red-700 flex items-center gap-1"
+                >
+                  <LogOut className="w-3.5 h-3.5" /> Sign Out
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </header>
 
       {/* Main Content View */}
@@ -250,12 +479,73 @@ function App() {
         </Routes>
       </main>
 
-      {/* Footer */}
-      <footer className="bg-white border-t border-gray-100 mt-auto py-8">
-        <div className="max-w-7xl mx-auto px-4 text-center space-y-2">
-          <p className="text-xs font-semibold text-gray-500">
-            &copy; 2026 Bharat Bazaar — Connecting Indian Artisans, Customers, and Student Growth Managers.
-          </p>
+      {/* Premium Footer */}
+      <footer className="bg-white border-t border-[#e8e2d8] mt-auto">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+            {/* Brand column */}
+            <div className="space-y-4 md:col-span-1">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-[#0b634e] text-white font-black flex items-center justify-center text-sm shadow font-display">
+                  BB
+                </div>
+                <span className="text-lg font-bold text-slate-900 font-display">Bharat Bazaar</span>
+              </div>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Empowering India's traditional makers with digital commerce, student growth managers, and ethical direct consumer discovery.
+              </p>
+              <div className="flex items-center gap-1.5 text-xs text-[#0b634e] font-semibold">
+                <Heart className="w-3.5 h-3.5 fill-[#0b634e]" />
+                Made with pride for Indian Craft
+              </div>
+            </div>
+
+            {/* Quick Links */}
+            <div className="space-y-3">
+              <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider font-display">Marketplace</h4>
+              <ul className="space-y-2 text-xs text-slate-600 font-medium">
+                <li><Link to="/marketplace" className="hover:text-[#0b634e] transition-colors">Handicrafts & Decor</Link></li>
+                <li><Link to="/marketplace" className="hover:text-[#0b634e] transition-colors">Textiles & Handloom</Link></li>
+                <li><Link to="/marketplace" className="hover:text-[#0b634e] transition-colors">Terracotta & Pottery</Link></li>
+                <li><Link to="/marketplace" className="hover:text-[#0b634e] transition-colors">Artisan Jewelry</Link></li>
+              </ul>
+            </div>
+
+            {/* Ecosystem */}
+            <div className="space-y-3">
+              <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider font-display">Ecosystem</h4>
+              <ul className="space-y-2 text-xs text-slate-600 font-medium">
+                <li><Link to="/how-it-works/artisan" className="hover:text-[#0b634e] transition-colors">Artisan Onboarding</Link></li>
+                <li><Link to="/how-it-works/growth-manager" className="hover:text-[#0b634e] transition-colors">Student Growth Program</Link></li>
+                <li><Link to="/growth-managers" className="hover:text-[#0b634e] transition-colors">Growth Manager Directory</Link></li>
+                <li><Link to="/about" className="hover:text-[#0b634e] transition-colors">About Our Mission</Link></li>
+              </ul>
+            </div>
+
+            {/* Trust & Transparency */}
+            <div className="space-y-3">
+              <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider font-display">Transparency</h4>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Direct payments to artisans. Verified student university partnerships. 100% authentic regional crafts.
+              </p>
+              <div className="pt-2">
+                <span className="inline-block px-3 py-1 bg-[#f4efe6] text-[#06372b] rounded-lg text-[11px] font-semibold border border-[#e8e2d8]">
+                  Verified Craft Guarantee
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-[#f0ebe1] mt-10 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500 font-medium">
+            <p>&copy; 2026 Bharat Bazaar. Connecting Indian Artisans, Conscious Customers & Growth Managers.</p>
+            <div className="flex gap-4">
+              <Link to="/about" className="hover:text-[#0b634e]">About</Link>
+              <span>•</span>
+              <Link to="/marketplace" className="hover:text-[#0b634e]">Marketplace</Link>
+              <span>•</span>
+              <Link to="/growth-managers" className="hover:text-[#0b634e]">Managers</Link>
+            </div>
+          </div>
         </div>
       </footer>
     </div>

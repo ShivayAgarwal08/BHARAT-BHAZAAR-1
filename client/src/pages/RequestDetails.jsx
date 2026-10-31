@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
+import { ArrowLeft, User, Calendar, Tag, CheckCircle2, Clock, Sparkles } from 'lucide-react';
 
 export default function RequestDetails() {
   const { id } = useParams();
@@ -83,42 +84,77 @@ export default function RequestDetails() {
     }
   };
 
-  if (loading) return <div className="text-center py-12">Loading details...</div>;
-  if (error) return <div className="text-center py-12 text-red-500">{error}</div>;
-  if (!request) return <div className="text-center py-12">Request not found</div>;
+  if (loading) {
+    return (
+      <div className="max-w-4xl mx-auto px-4 py-20 text-center space-y-4">
+        <div className="w-10 h-10 border-3 border-[#0b634e] border-t-transparent rounded-full animate-spin mx-auto"></div>
+        <p className="text-slate-500 font-medium text-xs">Loading request details...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-3xl mx-auto px-4 py-16 text-center card p-8">
+        <p className="text-rose-600 font-semibold text-xs">{error}</p>
+      </div>
+    );
+  }
+
+  if (!request) {
+    return (
+      <div className="max-w-3xl mx-auto px-4 py-16 text-center card p-8">
+        <p className="text-slate-600 font-medium text-xs">Request not found.</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-12">
-      <div className="mb-8 flex justify-between items-start">
-        <div>
-          <span className="bg-orange-50 text-primary px-3 py-1 rounded-full text-sm font-semibold mb-3 inline-block">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-6">
+      <Link
+        to={user.role === 'INTERN' ? '/growth-managers' : '/dashboard'}
+        className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-[#0b634e] transition-colors"
+      >
+        <ArrowLeft className="w-3.5 h-3.5" /> Back
+      </Link>
+
+      <div className="flex flex-col sm:flex-row justify-between items-start gap-4 border-b border-[#f0ebe1] pb-5">
+        <div className="space-y-1.5">
+          <span className="bg-[#e3f6f0] text-[#06372b] px-3 py-1 rounded-full text-xs font-bold border border-[#a7f3d0] uppercase tracking-wider inline-block">
             {request.category}
           </span>
-          <h1 className="text-3xl font-extrabold text-text">{request.title}</h1>
-          <p className="text-text-light mt-2">Posted by {request.artisan?.user?.name}</p>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 font-display">{request.title}</h1>
+          <p className="text-xs text-slate-500">Posted by {request.artisan?.user?.name || 'Artisan'}</p>
         </div>
-        <span className={`text-sm font-bold px-3 py-1.5 rounded-lg ${
-          request.status === 'OPEN' ? 'bg-green-100 text-green-700' :
-          request.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-700' :
-          'bg-gray-100 text-gray-700'
+
+        <span className={`text-xs font-bold px-3 py-1.5 rounded-xl uppercase tracking-wider border shrink-0 ${
+          request.status === 'OPEN' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' :
+          request.status === 'IN_PROGRESS' ? 'bg-sky-50 text-sky-800 border-sky-200' :
+          'bg-slate-100 text-slate-700 border-slate-200'
         }`}>
           {request.status}
         </span>
       </div>
 
-      <div className="card p-8 mb-8">
-        <h2 className="text-xl font-bold border-b pb-4 mb-4">Request Details</h2>
-        <p className="whitespace-pre-wrap text-text-light mb-6">{request.description}</p>
+      <div className="card p-6 sm:p-8 space-y-6">
+        <div>
+          <h2 className="text-base font-bold text-slate-900 border-b border-[#f0ebe1] pb-3 font-display">
+            Request Overview & Goals
+          </h2>
+          <p className="whitespace-pre-wrap text-slate-600 text-xs sm:text-sm leading-relaxed mt-4">
+            {request.description}
+          </p>
+        </div>
         
-        <div className="grid grid-cols-2 gap-4 text-sm bg-gray-50 p-4 rounded-xl">
+        <div className="grid grid-cols-2 gap-4 text-xs card-cream p-4 rounded-2xl border border-[#ded6c9]">
           <div>
-            <span className="block text-gray-500 font-medium">Budget</span>
-            <span className="font-semibold text-text">{request.budget || 'Not specified'}</span>
+            <span className="block text-slate-400 font-bold uppercase tracking-wider text-[10px]">Proposed Budget</span>
+            <span className="font-extrabold text-slate-900 text-sm font-display">{request.budget || 'Open / Discussion'}</span>
           </div>
           <div>
-            <span className="block text-gray-500 font-medium">Deadline</span>
-            <span className="font-semibold text-text">
-              {request.deadline ? new Date(request.deadline).toLocaleDateString() : 'Not specified'}
+            <span className="block text-slate-400 font-bold uppercase tracking-wider text-[10px]">Target Date</span>
+            <span className="font-bold text-slate-800 text-sm font-display">
+              {request.deadline ? new Date(request.deadline).toLocaleDateString('en-IN') : 'Flexible'}
             </span>
           </div>
         </div>
@@ -126,58 +162,62 @@ export default function RequestDetails() {
 
       {/* Intern View */}
       {user.role === 'INTERN' && (
-        <div className="card p-8">
-          <h2 className="text-xl font-bold border-b pb-4 mb-4">Application</h2>
+        <div className="card p-6 sm:p-8 space-y-5">
+          <h2 className="text-base font-bold text-slate-900 border-b border-[#f0ebe1] pb-3 font-display">
+            Your Application
+          </h2>
           
           {myApplication ? (
-            <div className="bg-orange-50/50 border border-orange-100 p-6 rounded-xl">
-              <h3 className="font-bold text-primary mb-2">Application Submitted</h3>
-              <p className="text-sm text-text-light mb-4">You have already applied for this request.</p>
+            <div className="card-cream border border-[#ded6c9] p-5 rounded-2xl space-y-3">
+              <h3 className="font-bold text-[#06372b] text-sm font-display">Application Submitted</h3>
+              <p className="text-xs text-slate-600">You have registered your interest for this artisan opportunity.</p>
               
-              <div className="bg-white p-4 rounded-lg border text-sm mb-4">
-                <span className="font-semibold block mb-1">Your Message:</span>
+              <div className="bg-white p-4 rounded-xl border border-[#ded6c9] text-xs text-slate-700">
+                <span className="font-bold text-slate-900 block mb-1">Your Pitch:</span>
                 {myApplication.message}
               </div>
               
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-sm">Status:</span>
-                <span className={`text-xs font-bold px-2 py-1 rounded ${
-                  myApplication.status === 'PENDING' ? 'bg-yellow-100 text-yellow-700' :
-                  myApplication.status === 'ACCEPTED' ? 'bg-green-100 text-green-700' :
-                  'bg-red-100 text-red-700'
+              <div className="flex items-center gap-2 pt-1">
+                <span className="font-bold text-xs text-slate-700">Status:</span>
+                <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase border ${
+                  myApplication.status === 'PENDING' ? 'bg-amber-50 text-amber-800 border-amber-200' :
+                  myApplication.status === 'ACCEPTED' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' :
+                  'bg-rose-50 text-rose-800 border-rose-200'
                 }`}>
                   {myApplication.status}
                 </span>
               </div>
               {myApplication.status === 'ACCEPTED' && (
-                <div className="mt-4 p-3 bg-green-50 text-green-800 rounded-lg text-sm font-medium">
-                  🎉 Congratulations! The artisan has selected you. The project has started.
+                <div className="mt-3 p-3 bg-emerald-50 text-emerald-800 rounded-xl text-xs font-semibold border border-emerald-200">
+                  🎉 Congratulations! The artisan has accepted your proposal. The milestone workspace is now active.
                 </div>
               )}
             </div>
           ) : request.status === 'OPEN' ? (
             <form onSubmit={handleApply} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-text mb-1">Why are you a good fit? (Cover Message)</label>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Why are you the right fit? (Cover Message & Strategy)
+                </label>
                 <textarea
                   value={applyMessage}
                   onChange={(e) => setApplyMessage(e.target.value)}
-                  className="input-field h-32 resize-none"
-                  placeholder="Introduce yourself and explain how you can help..."
+                  className="input-field h-32 resize-none text-xs sm:text-sm leading-relaxed"
+                  placeholder="Introduce yourself, cite your relevant skills (e.g. photography, catalog writing, Reels), and describe your proposed approach..."
                   required
                 />
               </div>
               <button 
                 type="submit" 
-                className="btn-primary w-full py-3"
+                className="btn-primary w-full py-3 text-xs font-bold shadow-md"
                 disabled={isApplying}
               >
-                {isApplying ? 'Submitting...' : 'Apply as Growth Manager'}
+                {isApplying ? 'Submitting Application...' : 'Apply as Growth Manager'}
               </button>
             </form>
           ) : (
-            <div className="text-center p-6 bg-gray-50 rounded-xl text-gray-500">
-              This request is no longer accepting applications.
+            <div className="text-center p-6 bg-[#faf8f5] rounded-2xl text-slate-500 text-xs border border-[#ded6c9]">
+              This artisan request is no longer accepting new applications.
             </div>
           )}
         </div>
@@ -185,30 +225,32 @@ export default function RequestDetails() {
 
       {/* Artisan View */}
       {user.role === 'ARTISAN' && (
-        <div className="card p-8">
-          <h2 className="text-xl font-bold border-b pb-4 mb-6">Applicants ({applications.length})</h2>
+        <div className="card p-6 sm:p-8 space-y-5">
+          <h2 className="text-base font-bold text-slate-900 border-b border-[#f0ebe1] pb-3 font-display">
+            Applicant Proposals ({applications.length})
+          </h2>
           
           {request.status === 'IN_PROGRESS' && (
-            <div className="mb-6 p-4 bg-blue-50 text-blue-800 rounded-xl font-medium">
-              Project Started! You have selected a Growth Manager.
+            <div className="p-4 bg-sky-50 text-sky-800 rounded-2xl text-xs font-semibold border border-sky-200">
+              Project Started! You have selected your student Growth Manager.
             </div>
           )}
 
           {applications.length === 0 ? (
-            <div className="text-center py-8 text-text-light">
-              No applications yet. Check back later!
+            <div className="text-center py-10 text-slate-400 text-xs italic">
+              No applications submitted yet. Student Growth Managers will be notified of your request.
             </div>
           ) : (
-            <div className="space-y-6">
+            <div className="space-y-4">
               {applications.map(app => (
-                <div key={app.id} className={`border rounded-xl p-6 ${app.status === 'ACCEPTED' ? 'border-green-300 bg-green-50/30' : ''}`}>
-                  <div className="flex justify-between items-start mb-4">
+                <div key={app.id} className={`border rounded-2xl p-5 bg-white space-y-3 ${app.status === 'ACCEPTED' ? 'border-emerald-300 bg-emerald-50/20' : 'border-[#ded6c9]'}`}>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div>
-                      <h3 className="font-bold text-lg">{app.intern?.user?.name}</h3>
-                      <span className={`text-xs font-bold px-2 py-1 rounded mt-2 inline-block ${
-                        app.status === 'PENDING' ? 'bg-yellow-100 text-yellow-700' :
-                        app.status === 'ACCEPTED' ? 'bg-green-100 text-green-700' :
-                        'bg-red-100 text-red-700'
+                      <h3 className="font-bold text-base text-slate-900 font-display">{app.intern?.user?.name}</h3>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase border mt-1 inline-block ${
+                        app.status === 'PENDING' ? 'bg-amber-50 text-amber-800 border-amber-200' :
+                        app.status === 'ACCEPTED' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' :
+                        'bg-rose-50 text-rose-800 border-rose-200'
                       }`}>
                         {app.status}
                       </span>
@@ -217,14 +259,14 @@ export default function RequestDetails() {
                     {request.status === 'OPEN' && app.status === 'PENDING' && (
                       <button 
                         onClick={() => handleAccept(app.id)}
-                        className="btn-primary text-sm py-2 px-4"
+                        className="btn-primary text-xs py-2 px-4 shadow-sm"
                       >
                         Select Growth Manager
                       </button>
                     )}
                   </div>
                   
-                  <div className="bg-gray-50 p-4 rounded-lg text-sm text-text-light whitespace-pre-wrap">
+                  <div className="bg-[#faf8f5] p-3.5 rounded-xl text-xs text-slate-700 whitespace-pre-wrap border border-[#ded6c9]/60 leading-relaxed">
                     {app.message}
                   </div>
                 </div>

@@ -106,24 +106,24 @@ export default function InternDashboard() {
 
   if (loading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-16 text-center space-y-4">
-        <div className="w-12 h-12 border-4 border-amber-700 border-t-transparent rounded-full animate-spin mx-auto"></div>
-        <p className="text-gray-500 font-medium">Loading Growth Manager workspace...</p>
+      <div className="max-w-7xl mx-auto px-4 py-20 text-center space-y-4">
+        <div className="w-10 h-10 border-3 border-[#0b634e] border-t-transparent rounded-full animate-spin mx-auto"></div>
+        <p className="text-slate-500 font-medium text-xs">Loading Growth Manager workspace...</p>
       </div>
     );
   }
 
   if (error && !contracts.length && !myApplications.length) {
     return (
-      <div className="max-w-md mx-auto px-4 py-16 text-center space-y-4">
-        <div className="w-12 h-12 bg-red-100 text-red-700 rounded-2xl flex items-center justify-center font-bold text-xl mx-auto">
+      <div className="max-w-md mx-auto px-4 py-16 text-center space-y-4 card p-8">
+        <div className="w-12 h-12 bg-rose-50 text-rose-700 rounded-2xl flex items-center justify-center font-bold text-xl mx-auto">
           !
         </div>
-        <h2 className="text-xl font-bold text-gray-900">Unable to load partnerships</h2>
-        <p className="text-sm text-gray-500">{error}</p>
+        <h2 className="text-lg font-bold text-slate-900 font-display">Unable to load partnerships</h2>
+        <p className="text-xs text-slate-500">{error}</p>
         <button
           onClick={fetchData}
-          className="px-6 py-2.5 bg-amber-700 text-white font-bold rounded-xl text-sm hover:bg-amber-800 transition-colors shadow-sm"
+          className="btn-primary text-xs py-2 px-5 inline-flex"
         >
           Retry
         </button>
@@ -134,71 +134,71 @@ export default function InternDashboard() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
       {/* Top Header & Reputation Badge */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 card p-6">
         <div>
           <div className="flex items-center gap-2">
-            <span className="px-3 py-1 bg-amber-100 text-amber-900 rounded-full text-xs font-extrabold uppercase">
+            <span className="px-3 py-1 bg-[#e3f6f0] text-[#06372b] border border-[#a7f3d0] rounded-full text-[11px] font-bold uppercase tracking-wider">
               {tier} Growth Manager
             </span>
             <button
               onClick={() => setShowSettings(!showSettings)}
-              className="p-1.5 text-gray-400 hover:text-amber-800 rounded-lg hover:bg-gray-100"
+              className="p-1.5 text-slate-400 hover:text-[#0b634e] rounded-lg hover:bg-[#faf8f5] transition-colors"
               title="Configure Tier & Rates"
             >
               <Settings className="w-4 h-4" />
             </button>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 mt-1">
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-1 font-display">
             Growth Manager Workspace
           </h1>
-          <p className="text-xs sm:text-sm text-gray-500">
-            Manage your artisan client contracts, work on growth milestones, and build your digital reputation.
+          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+            Manage your artisan partnerships, execute verified milestones, and build your digital e-commerce portfolio.
           </p>
         </div>
 
         {reputation && (
-          <div className="flex items-center gap-6 bg-amber-50/70 p-4 rounded-2xl border border-amber-100">
+          <div className="flex items-center gap-6 card-cream p-4 rounded-2xl border border-[#ded6c9] shrink-0">
             <div className="text-center">
-              <span className="block text-2xl font-extrabold text-amber-900 flex items-center gap-1 justify-center">
-                {reputation.averageRating} <Star className="w-5 h-5 text-amber-500 fill-amber-500" />
+              <span className="block text-xl font-black text-slate-900 flex items-center gap-1 justify-center font-display">
+                {reputation.averageRating} <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
               </span>
-              <span className="text-[10px] text-amber-800 uppercase font-bold tracking-wider">
+              <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">
                 {reputation.reviews} Reviews
               </span>
             </div>
-            <div className="w-px h-8 bg-amber-200"></div>
+            <div className="w-px h-8 bg-[#ded6c9]"></div>
             <div className="text-center">
-              <span className="block text-2xl font-extrabold text-gray-900">
+              <span className="block text-xl font-black text-slate-900 font-display">
                 {reputation.projectsCompleted}
               </span>
-              <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">
-                Completed Clients
+              <span className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">
+                Clients Finished
               </span>
             </div>
           </div>
         )}
       </div>
 
-      {/* Tier Settings Drawer Modal */}
+      {/* Tier Settings Drawer */}
       {showSettings && (
-        <div className="bg-amber-50/90 border border-amber-200 rounded-3xl p-6 space-y-4 animate-in fade-in">
-          <div className="flex justify-between items-center border-b border-amber-200/60 pb-3">
-            <h3 className="font-bold text-gray-900 text-sm flex items-center gap-2">
-              <Award className="w-4 h-4 text-amber-800" />
+        <div className="card-cream border border-[#ded6c9] rounded-3xl p-6 space-y-4 animate-in fade-in shadow-sm">
+          <div className="flex justify-between items-center border-b border-[#e8decb] pb-3">
+            <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2 font-display">
+              <Award className="w-4 h-4 text-[#0b634e]" />
               Configure Growth Manager Tier & Rate Preferences
             </h3>
-            <button onClick={() => setShowSettings(false)} className="text-xs font-bold text-gray-500 hover:text-gray-700">
+            <button onClick={() => setShowSettings(false)} className="text-xs font-bold text-slate-500 hover:text-slate-800">
               Close
             </button>
           </div>
 
           <form onSubmit={handleUpdateProfile} className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
             <div>
-              <label className="block font-bold text-gray-700 mb-1">Target Tier</label>
+              <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">Target Tier</label>
               <select
                 value={tier}
                 onChange={(e) => setTier(e.target.value)}
-                className="w-full p-2.5 bg-white border border-gray-200 rounded-xl font-bold"
+                className="input-field text-xs py-2 font-bold bg-white"
               >
                 <option value="STARTER">STARTER (Basic Catalog & Setup)</option>
                 <option value="GROWTH">GROWTH (Branding & Social Media)</option>
@@ -208,32 +208,32 @@ export default function InternDashboard() {
             </div>
 
             <div>
-              <label className="block font-bold text-gray-700 mb-1">Hourly Rate (₹)</label>
+              <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">Hourly Rate (₹)</label>
               <input
                 type="number"
                 placeholder="e.g. 300"
                 value={hourlyRate}
                 onChange={(e) => setHourlyRate(e.target.value)}
-                className="w-full p-2.5 bg-white border border-gray-200 rounded-xl"
+                className="input-field text-xs py-2"
               />
             </div>
 
             <div>
-              <label className="block font-bold text-gray-700 mb-1">Project Rate (₹)</label>
+              <label className="block font-bold text-slate-700 uppercase tracking-wider mb-1">Project Rate (₹)</label>
               <input
                 type="number"
                 placeholder="e.g. 5000"
                 value={projectRate}
                 onChange={(e) => setProjectRate(e.target.value)}
-                className="w-full p-2.5 bg-white border border-gray-200 rounded-xl"
+                className="input-field text-xs py-2"
               />
             </div>
 
-            <div className="sm:col-span-3 flex justify-end">
+            <div className="sm:col-span-3 flex justify-end pt-2">
               <button
                 type="submit"
                 disabled={updatingProfile}
-                className="px-5 py-2.5 bg-amber-700 text-white font-bold rounded-xl text-xs hover:bg-amber-800 shadow"
+                className="btn-primary text-xs py-2 px-5 font-semibold shadow-sm"
               >
                 Save Preferences
               </button>
@@ -243,59 +243,61 @@ export default function InternDashboard() {
       )}
 
       {/* Active Client Contracts */}
-      <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm space-y-4">
-        <div className="flex justify-between items-center border-b border-gray-100 pb-4">
-          <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-            <FileText className="w-5 h-5 text-amber-700" />
+      <div className="card p-6 space-y-4">
+        <div className="flex justify-between items-center border-b border-[#f0ebe1] pb-3">
+          <h2 className="text-base font-bold text-slate-900 flex items-center gap-2 font-display">
+            <FileText className="w-4 h-4 text-[#0b634e]" />
             Active Client Contracts ({contracts.length})
           </h2>
         </div>
 
         {contracts.length === 0 ? (
-          <div className="text-center py-8 text-gray-400 text-xs italic">
+          <div className="text-center py-10 text-slate-400 text-xs italic">
             You don't have any active artisan client contracts yet. Apply for growth opportunities below!
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {contracts.map((contract) => {
               const targetProjectId = contract.projectId || contract.project?.id;
               return (
                 <div
                   key={contract.id}
-                  className="border border-gray-100 rounded-2xl p-5 hover:shadow-md transition bg-white flex flex-col justify-between space-y-4"
+                  className="border border-[#ded6c9] rounded-2xl p-5 hover:shadow-md transition bg-white flex flex-col justify-between space-y-4 shadow-sm"
                 >
                   <div className="space-y-2">
                     <div className="flex justify-between items-start">
-                      <span className="bg-amber-50 text-amber-800 px-2.5 py-1 rounded-md text-[10px] font-extrabold uppercase">
+                      <span className="bg-[#f4efe6] text-slate-800 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border border-[#ded6c9]">
                         {contract.tier} Tier
                       </span>
                       <span
-                        className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase ${
-                          contract.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                        className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase border ${
+                          contract.status === 'ACTIVE' 
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
+                            : 'bg-amber-50 text-amber-800 border-amber-200'
                         }`}
                       >
                         {contract.status}
                       </span>
                     </div>
 
-                    <h3 className="font-bold text-base text-gray-900">
+                    <h3 className="font-bold text-base text-slate-900 font-display">
                       {contract.title}
                     </h3>
-                    <p className="text-xs text-gray-500">
-                      Artisan Client: <span className="font-semibold text-gray-800">{contract.artisan?.user?.name}</span>
+                    <p className="text-xs text-slate-500">
+                      Artisan Client: <span className="font-semibold text-slate-800">{contract.artisan?.user?.name}</span>
                     </p>
                   </div>
 
-                  <div className="pt-3 border-t border-gray-100 space-y-3">
+                  <div className="pt-3 border-t border-[#f0ebe1] space-y-3">
                     <div className="flex justify-between items-center text-xs">
-                      <span className="font-bold text-amber-900">₹{contract.paymentAmount} ({contract.paymentType})</span>
-                      <span className="text-xs text-gray-500">{contract.tasks?.filter(t => t.isCompleted).length || 0} tasks done</span>
+                      <span className="font-black text-slate-900 font-display">₹{contract.paymentAmount} ({contract.paymentType})</span>
+                      <span className="text-[11px] text-slate-500">{contract.tasks?.filter(t => t.isCompleted).length || 0} tasks done</span>
                     </div>
                     <div className="flex items-center gap-2">
                       {targetProjectId && (
                         <Link
                           to={`/projects/${targetProjectId}`}
-                          className="flex-1 text-center py-2 px-3 bg-amber-700 text-white rounded-xl text-xs font-bold hover:bg-amber-800 transition-colors shadow-sm"
+                          className="btn-primary flex-1 text-center py-2 px-3 text-xs font-semibold shadow-sm"
                         >
                           Open Workspace &rarr;
                         </Link>
@@ -303,7 +305,7 @@ export default function InternDashboard() {
                       <Link
                         to={`/contracts/${contract.id}`}
                         state={{ projectId: targetProjectId }}
-                        className="py-2 px-3 bg-white border border-gray-200 text-gray-700 rounded-xl text-xs font-semibold hover:bg-gray-50 transition-colors text-center"
+                        className="btn-secondary py-2 px-3 text-xs font-semibold text-center"
                       >
                         Agreement
                       </Link>
@@ -317,46 +319,46 @@ export default function InternDashboard() {
       </div>
 
       {/* Applications Track */}
-      <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm space-y-4">
-        <h2 className="text-lg font-bold text-gray-900 border-b border-gray-100 pb-4">
+      <div className="card p-6 space-y-4">
+        <h2 className="text-base font-bold text-slate-900 border-b border-[#f0ebe1] pb-3 font-display">
           My Applications Track ({myApplications.length})
         </h2>
 
         {myApplications.length === 0 ? (
-          <div className="text-center py-6 text-gray-400 text-xs italic">
+          <div className="text-center py-8 text-slate-400 text-xs italic">
             You haven't submitted any applications yet.
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="border-b bg-gray-50 text-gray-500 font-bold uppercase tracking-wider">
-                  <th className="p-3.5 rounded-tl-xl">Request Title</th>
+                <tr className="border-b border-[#f0ebe1] bg-[#faf8f5] text-slate-500 font-bold uppercase tracking-wider">
+                  <th className="p-3.5 rounded-l-xl">Request Title</th>
                   <th className="p-3.5">Category</th>
                   <th className="p-3.5">Date</th>
-                  <th className="p-3.5 rounded-tr-xl text-right">Status</th>
+                  <th className="p-3.5 rounded-r-xl text-right">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
+              <tbody className="divide-y divide-[#f0ebe1]">
                 {myApplications.map((app) => (
-                  <tr key={app.id} className="hover:bg-gray-50/80 transition-colors">
-                    <td className="p-3.5 font-bold text-amber-900">
-                      <Link to={`/dashboard/requests/${app.requestId}`} className="hover:underline">
+                  <tr key={app.id} className="hover:bg-[#faf8f5]/60 transition-colors">
+                    <td className="p-3.5 font-bold text-slate-900 font-display">
+                      <Link to={`/dashboard/requests/${app.requestId}`} className="hover:text-[#0b634e] hover:underline">
                         {app.request?.title}
                       </Link>
                     </td>
-                    <td className="p-3.5 text-gray-600">{app.request?.category}</td>
-                    <td className="p-3.5 text-gray-400">
+                    <td className="p-3.5 text-slate-600">{app.request?.category}</td>
+                    <td className="p-3.5 text-slate-400">
                       {new Date(app.createdAt).toLocaleDateString('en-IN')}
                     </td>
                     <td className="p-3.5 text-right">
                       <span
-                        className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase ${
+                        className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
                           app.status === 'ACCEPTED'
-                            ? 'bg-emerald-100 text-emerald-800'
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                             : app.status === 'PENDING'
-                            ? 'bg-amber-100 text-amber-800'
-                            : 'bg-red-100 text-red-800'
+                            ? 'bg-amber-50 text-amber-800 border-amber-200'
+                            : 'bg-rose-50 text-rose-800 border-rose-200'
                         }`}
                       >
                         {app.status}
@@ -370,43 +372,43 @@ export default function InternDashboard() {
         )}
       </div>
 
-      {/* Open Artisan Growth Opportunities Directory */}
-      <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm space-y-4">
-        <h2 className="text-lg font-bold text-gray-900 border-b border-gray-100 pb-4">
+      {/* Open Artisan Growth Opportunities */}
+      <div className="card p-6 space-y-4">
+        <h2 className="text-base font-bold text-slate-900 border-b border-[#f0ebe1] pb-3 font-display">
           Open Artisan Growth Opportunities ({openRequests.length})
         </h2>
 
         {openRequests.length === 0 ? (
-          <div className="text-center py-12 text-gray-400 text-xs italic">
+          <div className="text-center py-10 text-slate-400 text-xs italic">
             There are currently no open artisan requests. Check back soon!
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {openRequests.map((req) => (
               <Link
                 key={req.id}
                 to={`/dashboard/requests/${req.id}`}
-                className="border border-gray-100 rounded-2xl p-5 hover:shadow-md transition bg-white flex flex-col justify-between space-y-4 group block"
+                className="border border-[#ded6c9] rounded-2xl p-5 hover:shadow-md transition bg-white flex flex-col justify-between space-y-4 group block shadow-sm"
               >
                 <div className="space-y-2">
                   <div className="flex justify-between items-start">
-                    <span className="bg-amber-50 text-amber-800 px-2.5 py-1 rounded-md text-[10px] font-extrabold">
+                    <span className="bg-[#e3f6f0] text-[#06372b] px-2.5 py-0.5 rounded-full text-[10px] font-bold border border-[#a7f3d0]">
                       {req.category}
                     </span>
-                    <span className="text-[10px] text-gray-400">
+                    <span className="text-[10px] text-slate-400">
                       {new Date(req.createdAt).toLocaleDateString('en-IN')}
                     </span>
                   </div>
 
-                  <h3 className="font-bold text-base text-gray-900 group-hover:text-amber-800 transition-colors line-clamp-1">
+                  <h3 className="font-bold text-base text-slate-900 group-hover:text-[#0b634e] transition-colors line-clamp-1 font-display">
                     {req.title}
                   </h3>
-                  <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed">{req.description}</p>
+                  <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">{req.description}</p>
                 </div>
 
-                <div className="pt-3 border-t border-gray-100 flex justify-between items-center text-xs">
-                  <span className="text-gray-500 font-medium">{req.artisan?.user?.name}</span>
-                  <span className="font-bold text-amber-900">{req.budget || 'Budget Open'}</span>
+                <div className="pt-3 border-t border-[#f0ebe1] flex justify-between items-center text-xs">
+                  <span className="text-slate-600 font-medium">{req.artisan?.user?.name}</span>
+                  <span className="font-black text-slate-900 font-display">{req.budget || 'Budget Open'}</span>
                 </div>
               </Link>
             ))}
