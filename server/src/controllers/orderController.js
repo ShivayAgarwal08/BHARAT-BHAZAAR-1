@@ -1,10 +1,19 @@
 const prisma = require('../prisma');
 
+const ALLOWED_TRANSITIONS = {
+  PENDING: ['CONFIRMED', 'CANCELLED'],
+  CONFIRMED: ['PROCESSING', 'CANCELLED'],
+  PROCESSING: ['SHIPPED', 'CANCELLED'],
+  SHIPPED: ['DELIVERED'],
+  DELIVERED: [],
+  CANCELLED: [],
+};
+
 const createOrder = async (req, res) => {
   const { shippingAddress, phone, customerName } = req.body;
 
   if (!shippingAddress || !phone) {
-    return res.status(400).json({ error: 'Shipping address and phone number are required' });
+    return res.status(400).json({ error: 'Shipping address and phone number are required', code: 'MISSING_FIELDS' });
   }
 
   try {
@@ -20,7 +29,7 @@ const createOrder = async (req, res) => {
     });
 
     if (!cart || cart.items.length === 0) {
-      return res.status(400).json({ error: 'Your cart is empty' });
+      return res.status(400).json({ error: 'Your cart is empty', code: 'EMPTY_CART' });
     }
 
     // Verify stock availability for all items
@@ -28,6 +37,7 @@ const createOrder = async (req, res) => {
       if (item.product.quantity < item.quantity) {
         return res.status(400).json({
           error: `Insufficient stock for "${item.product.title}". Only ${item.product.quantity} left in stock.`,
+          code: 'INSUFFICIENT_STOCK',
         });
       }
     }
@@ -45,7 +55,7 @@ const createOrder = async (req, res) => {
           phone,
           customerName: customerName || req.user.name,
           status: 'PENDING',
-          paymentStatus: 'UNPAID', // Clear MVP marker: offline/COD order placement
+          paymentStatus: 'UNPAID',
           items: {
             create: cart.items.map((item) => ({
               productId: item.productId,
@@ -61,10 +71,16 @@ const createOrder = async (req, res) => {
 
       // Decrement product inventory and record order metrics
       for (const item of cart.items) {
-        await tx.product.update({
+        const updatedProduct = await tx.product.update({
           where: { id: item.productId },
           data: { quantity: { decrement: item.quantity } },
         });
+
+        if (updatedProduct.quantity < 0) {
+          const stockErr = new Error(`Insufficient stock for "${item.product.title}". Only ${item.product.quantity} left in stock.`);
+          stockErr.code = 'INSUFFICIENT_STOCK';
+          throw stockErr;
+        }
 
         await tx.productMetric.upsert({
           where: { productId: item.productId },
@@ -88,6 +104,9 @@ const createOrder = async (req, res) => {
 
     res.status(201).json(order);
   } catch (error) {
+    if (error.code === 'INSUFFICIENT_STOCK') {
+      return res.status(400).json({ error: error.message, code: 'INSUFFICIENT_STOCK' });
+    }
     console.error('Create order error:', error);
     res.status(500).json({ error: 'Failed to place order' });
   }
@@ -134,10 +153,9 @@ const getOrderById = async (req, res) => {
     });
 
     if (!order) {
-      return res.status(404).json({ error: 'Order not found' });
+      return res.status(404).json({ error: 'Order not found', code: 'ORDER_NOT_FOUND' });
     }
 
-    // Check authorization: customer who placed order OR artisan owning an item in order
     const isCustomer = order.customerId === req.user.id;
     let isItemArtisan = false;
 
@@ -149,7 +167,7 @@ const getOrderById = async (req, res) => {
     }
 
     if (!isCustomer && !isItemArtisan && req.user.role !== 'ADMIN') {
-      return res.status(403).json({ error: 'Unauthorized to view this order' });
+      return res.status(403).json({ error: 'Unauthorized to view this order', code: 'UNAUTHORIZED' });
     }
 
     res.json(order);
@@ -161,16 +179,15 @@ const getOrderById = async (req, res) => {
 
 const getArtisanOrders = async (req, res) => {
   if (req.user.role !== 'ARTISAN') {
-    return res.status(403).json({ error: 'Only artisans can view artisan orders' });
+    return res.status(403).json({ error: 'Only artisans can view artisan orders', code: 'UNAUTHORIZED' });
   }
 
   try {
     const artisan = await prisma.artisan.findUnique({ where: { userId: req.user.id } });
     if (!artisan) {
-      return res.status(404).json({ error: 'Artisan profile not found' });
+      return res.status(404).json({ error: 'Artisan profile not found', code: 'PROFILE_NOT_FOUND' });
     }
 
-    // Find all order items matching this artisan's ID
     const orderItems = await prisma.orderItem.findMany({
       where: { artisanId: artisan.id },
       include: {
@@ -193,7 +210,7 @@ const getArtisanOrders = async (req, res) => {
 
 const updateOrderStatus = async (req, res) => {
   if (req.user.role !== 'ARTISAN' && req.user.role !== 'ADMIN') {
-    return res.status(403).json({ error: 'Unauthorized' });
+    return res.status(403).json({ error: 'Unauthorized: Only artisans or administrators can update orders', code: 'UNAUTHORIZED' });
   }
 
   const { id } = req.params;
@@ -201,7 +218,7 @@ const updateOrderStatus = async (req, res) => {
 
   const validStatuses = ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'];
   if (!status || !validStatuses.includes(status)) {
-    return res.status(400).json({ error: 'Invalid order status' });
+    return res.status(400).json({ error: 'Invalid order status', code: 'INVALID_STATUS' });
   }
 
   try {
@@ -211,14 +228,38 @@ const updateOrderStatus = async (req, res) => {
     });
 
     if (!order) {
-      return res.status(404).json({ error: 'Order not found' });
+      return res.status(404).json({ error: 'Order not found', code: 'ORDER_NOT_FOUND' });
     }
 
+    // Role-specific ownership and authorization check
     if (req.user.role === 'ARTISAN') {
       const artisan = await prisma.artisan.findUnique({ where: { userId: req.user.id } });
+      if (!artisan) {
+        return res.status(404).json({ error: 'Artisan profile not found', code: 'PROFILE_NOT_FOUND' });
+      }
+
+      // Check if artisan owns any items at all
       const ownsAnyItem = order.items.some((item) => item.artisanId === artisan.id);
       if (!ownsAnyItem) {
-        return res.status(403).json({ error: 'Unauthorized to update status for this order' });
+        return res.status(403).json({ error: 'Unauthorized: You do not own any items in this order', code: 'FORBIDDEN' });
+      }
+
+      // Multi-artisan protection: prevent one artisan from updating the status of an entire multi-artisan order
+      const allItemsBelongToArtisan = order.items.every((item) => item.artisanId === artisan.id);
+      if (!allItemsBelongToArtisan) {
+        return res.status(403).json({
+          error: 'Forbidden: This order contains items from multiple artisans. Multi-vendor orders must be updated by platform administration.',
+          code: 'MULTI_ARTISAN_RESTRICTION',
+        });
+      }
+
+      // Enforce valid state transitions
+      const allowedNext = ALLOWED_TRANSITIONS[order.status] || [];
+      if (!allowedNext.includes(status)) {
+        return res.status(400).json({
+          error: `Invalid status transition from "${order.status}" to "${status}". Allowed transitions: ${allowedNext.join(', ') || 'None (order finalized)'}`,
+          code: 'INVALID_TRANSITION',
+        });
       }
     }
 
@@ -240,4 +281,5 @@ module.exports = {
   getOrderById,
   getArtisanOrders,
   updateOrderStatus,
+  ALLOWED_TRANSITIONS,
 };

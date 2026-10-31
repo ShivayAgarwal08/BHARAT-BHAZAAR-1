@@ -488,3 +488,200 @@ test.describe('Task B: Socket.IO Authentication & Authorization', () => {
     }
   });
 });
+
+// ─────────────────────────────────────────────────────────────
+// Task G: Contract Agreement, Tasks & Task Toggle Authorization
+// ─────────────────────────────────────────────────────────────
+test.describe('Task G: Contract Agreement & Task Permissions', () => {
+  test('agreeContract rejects non-participant with 403', async () => {
+    const originalContractFindUnique = prisma.contract.findUnique;
+    prisma.contract.findUnique = async () => ({
+      id: 'contract-task-1',
+      artisan: { userId: 'artisan-real-id' },
+      intern: { userId: 'intern-real-id' },
+      artisanAgreed: true,
+      internAgreed: false,
+    });
+
+    try {
+      const token = createToken({ id: 'unrelated-user', role: 'CUSTOMER', name: 'Stranger' });
+      const res = await fetch(`${baseUrl}/api/contracts/contract-task-1/agree`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      assert.equal(res.status, 403);
+      const data = await res.json();
+      assert.equal(data.code, 'UNAUTHORIZED');
+    } finally {
+      prisma.contract.findUnique = originalContractFindUnique;
+    }
+  });
+
+  test('createContractTask rejects unauthorized non-participant with 403', async () => {
+    const originalContractFindUnique = prisma.contract.findUnique;
+    prisma.contract.findUnique = async () => ({
+      id: 'contract-task-1',
+      artisan: { userId: 'artisan-real-id' },
+      intern: { userId: 'intern-real-id' },
+    });
+
+    try {
+      const token = createToken({ id: 'unrelated-user', role: 'CUSTOMER', name: 'Stranger' });
+      const res = await fetch(`${baseUrl}/api/contracts/contract-task-1/tasks`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ title: 'Unauthorized Task' }),
+      });
+
+      assert.equal(res.status, 403);
+      const data = await res.json();
+      assert.equal(data.code, 'UNAUTHORIZED');
+    } finally {
+      prisma.contract.findUnique = originalContractFindUnique;
+    }
+  });
+
+  test('toggleContractTask rejects unauthorized non-participant with 403', async () => {
+    const originalTaskFindUnique = prisma.contractTask.findUnique;
+    prisma.contractTask.findUnique = async () => ({
+      id: 'task-1',
+      contract: {
+        artisan: { userId: 'artisan-real-id' },
+        intern: { userId: 'intern-real-id' },
+      },
+      isCompleted: false,
+    });
+
+    try {
+      const token = createToken({ id: 'unrelated-user', role: 'CUSTOMER', name: 'Stranger' });
+      const res = await fetch(`${baseUrl}/api/contracts/tasks/task-1/toggle`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      assert.equal(res.status, 403);
+      const data = await res.json();
+      assert.equal(data.code, 'UNAUTHORIZED');
+    } finally {
+      prisma.contractTask.findUnique = originalTaskFindUnique;
+    }
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// Task H: Stock Consistency & Order Validation
+// ─────────────────────────────────────────────────────────────
+test.describe('Task H: Stock Consistency & Order Validation', () => {
+  test('createOrder rejects order with empty cart with 400 EMPTY_CART', async () => {
+    const originalCartFindUnique = prisma.cart.findUnique;
+    prisma.cart.findUnique = async () => ({
+      id: 'cart-empty',
+      userId: 'cust-1',
+      items: [],
+    });
+
+    try {
+      const token = createToken({ id: 'cust-1', role: 'CUSTOMER', name: 'Customer' });
+      const res = await fetch(`${baseUrl}/api/orders`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ shippingAddress: '123 Main St', phone: '9999900001' }),
+      });
+
+      assert.equal(res.status, 400);
+      const data = await res.json();
+      assert.equal(data.code, 'EMPTY_CART');
+    } finally {
+      prisma.cart.findUnique = originalCartFindUnique;
+    }
+  });
+
+  test('createOrder rejects missing shipping address / phone with 400 MISSING_FIELDS', async () => {
+    const token = createToken({ id: 'cust-1', role: 'CUSTOMER', name: 'Customer' });
+    const res = await fetch(`${baseUrl}/api/orders`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ shippingAddress: '', phone: '' }),
+    });
+
+    assert.equal(res.status, 400);
+    const data = await res.json();
+    assert.equal(data.code, 'MISSING_FIELDS');
+  });
+
+  test('createOrder rejects insufficient stock with 400 INSUFFICIENT_STOCK', async () => {
+    const originalCartFindUnique = prisma.cart.findUnique;
+    prisma.cart.findUnique = async () => ({
+      id: 'cart-1',
+      userId: 'cust-1',
+      items: [
+        {
+          id: 'item-1',
+          quantity: 10,
+          product: { id: 'prod-1', title: 'Rare Vase', price: 1000, quantity: 2, artisanId: 'art-1' },
+        },
+      ],
+    });
+
+    try {
+      const token = createToken({ id: 'cust-1', role: 'CUSTOMER', name: 'Customer' });
+      const res = await fetch(`${baseUrl}/api/orders`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ shippingAddress: '123 Main St', phone: '9999900001' }),
+      });
+
+      assert.equal(res.status, 400);
+      const data = await res.json();
+      assert.equal(data.code, 'INSUFFICIENT_STOCK');
+      assert.match(data.error, /Insufficient stock/);
+    } finally {
+      prisma.cart.findUnique = originalCartFindUnique;
+    }
+  });
+});
+
+// ─────────────────────────────────────────────────────────────
+// Task I: Cross-Artisan Catalog Protection
+// ─────────────────────────────────────────────────────────────
+test.describe('Task I: Cross-Artisan Catalog Protection', () => {
+  test('updateProduct rejects artisan attempting to edit another artisan product with 403', async () => {
+    const originalArtisanFindUnique = prisma.artisan.findUnique;
+    const originalProductFindUnique = prisma.product.findUnique;
+
+    prisma.artisan.findUnique = async () => ({ id: 'artisan-attacker', userId: 'user-attacker' });
+    prisma.product.findUnique = async () => ({ id: 'prod-victim', artisanId: 'artisan-victim' });
+
+    try {
+      const token = createToken({ id: 'user-attacker', role: 'ARTISAN', name: 'Attacker Artisan' });
+      const res = await fetch(`${baseUrl}/api/products/prod-victim`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ title: 'Tampered Title' }),
+      });
+
+      assert.equal(res.status, 403);
+      const data = await res.json();
+      assert.match(data.error, /permission to edit this product/);
+    } finally {
+      prisma.artisan.findUnique = originalArtisanFindUnique;
+      prisma.product.findUnique = originalProductFindUnique;
+    }
+  });
+});

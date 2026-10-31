@@ -352,17 +352,28 @@ export default function ProjectWorkspace() {
 
     fetchProjectData();
 
-    // Socket.IO setup
-    socketRef.current = io(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}`);
+    // Socket.IO setup with authentication handshake
+    const authToken = localStorage.getItem('token');
+    socketRef.current = io(`${import.meta.env.VITE_API_URL || 'http://localhost:5001'}`, {
+      auth: { token: authToken },
+      transports: ['websocket', 'polling'],
+    });
 
     socketRef.current.emit('joinProject', id);
 
     socketRef.current.on('receiveMessage', (messageData) => {
-      setMessages((prev) => [...prev, messageData]);
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === messageData.id)) return prev;
+        return [...prev, messageData];
+      });
+    });
+
+    socketRef.current.on('connect_error', (err) => {
+      console.warn('Workspace real-time connection notice:', err.message);
     });
 
     return () => {
-      socketRef.current.disconnect();
+      socketRef.current?.disconnect();
     };
   }, [id, user, navigate]);
 

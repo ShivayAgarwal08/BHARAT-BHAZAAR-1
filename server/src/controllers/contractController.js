@@ -148,11 +148,12 @@ const getContractById = async (req, res) => {
 
     if (!contract) return res.status(404).json({ error: 'Contract not found' });
 
-    const isArtisan = contract.artisan.userId === req.user.id || contract.artisan.user.phone === req.user.phone;
-    const isIntern = contract.intern.userId === req.user.id || contract.intern.user.phone === req.user.phone;
+    const isArtisan = Boolean(contract.artisan && contract.artisan.userId === req.user.id);
+    const isIntern = Boolean(contract.intern && contract.intern.userId === req.user.id);
+    const isAdmin = req.user.role === 'ADMIN';
 
-    if (!isArtisan && !isIntern) {
-      return res.status(403).json({ error: 'Unauthorized to view this contract' });
+    if (!isArtisan && !isIntern && !isAdmin) {
+      return res.status(403).json({ error: 'Unauthorized to view this contract', code: 'UNAUTHORIZED' });
     }
 
     // Proactively connect / self-heal Project relation if missing (Strictly deterministic)
@@ -276,12 +277,15 @@ const agreeContract = async (req, res) => {
 
     let dataToUpdate = {};
 
-    if (req.user.role === 'ARTISAN' && contract.artisan.userId === req.user.id) {
+    const isArtisan = Boolean(contract.artisan && contract.artisan.userId === req.user.id);
+    const isIntern = Boolean(contract.intern && contract.intern.userId === req.user.id);
+
+    if (req.user.role === 'ARTISAN' && isArtisan) {
       dataToUpdate.artisanAgreed = true;
-    } else if (req.user.role === 'INTERN' && contract.intern.userId === req.user.id) {
+    } else if (req.user.role === 'INTERN' && isIntern) {
       dataToUpdate.internAgreed = true;
     } else {
-      return res.status(403).json({ error: 'Unauthorized to agree to this contract' });
+      return res.status(403).json({ error: 'Unauthorized to agree to this contract', code: 'UNAUTHORIZED' });
     }
 
     const willBeBothAgreed =
@@ -398,11 +402,12 @@ const createContractTask = async (req, res) => {
 
     if (!contract) return res.status(404).json({ error: 'Contract not found' });
 
-    const isArtisan = contract.artisan.userId === req.user.id;
-    const isIntern = contract.intern.userId === req.user.id;
+    const isArtisan = Boolean(contract.artisan && contract.artisan.userId === req.user.id);
+    const isIntern = Boolean(contract.intern && contract.intern.userId === req.user.id);
+    const isAdmin = req.user.role === 'ADMIN';
 
-    if (!isArtisan && !isIntern) {
-      return res.status(403).json({ error: 'Unauthorized to add tasks to this contract' });
+    if (!isArtisan && !isIntern && !isAdmin) {
+      return res.status(403).json({ error: 'Unauthorized to add tasks to this contract', code: 'UNAUTHORIZED' });
     }
 
     const task = await prisma.contractTask.create({
@@ -424,7 +429,7 @@ const createContractTask = async (req, res) => {
 
 const toggleContractTask = async (req, res) => {
   const { taskId } = req.params;
-  const { isCompleted } = req.body;
+  const { isCompleted } = req.body || {};
 
   try {
     const task = await prisma.contractTask.findUnique({
@@ -434,11 +439,12 @@ const toggleContractTask = async (req, res) => {
 
     if (!task) return res.status(404).json({ error: 'Task not found' });
 
-    const isArtisan = task.contract.artisan.userId === req.user.id;
-    const isIntern = task.contract.intern.userId === req.user.id;
+    const isArtisan = Boolean(task.contract?.artisan && task.contract.artisan.userId === req.user.id);
+    const isIntern = Boolean(task.contract?.intern && task.contract.intern.userId === req.user.id);
+    const isAdmin = req.user.role === 'ADMIN';
 
-    if (!isArtisan && !isIntern) {
-      return res.status(403).json({ error: 'Unauthorized' });
+    if (!isArtisan && !isIntern && !isAdmin) {
+      return res.status(403).json({ error: 'Unauthorized to update this task', code: 'UNAUTHORIZED' });
     }
 
     const newCompleted = isCompleted !== undefined ? isCompleted : !task.isCompleted;
@@ -475,17 +481,12 @@ const getContractPdf = async (req, res) => {
 
     if (!contract) return res.status(404).json({ error: 'Contract not found' });
 
-    // Multi-factor authorization: checks user id against artisan/intern relation or role
-    const isArtisan = contract.artisan?.userId === req.user.id ||
-                      contract.artisanId === req.user.id ||
-                      (req.user.role === 'ARTISAN' && contract.artisan?.user?.phone === req.user.phone);
-    const isIntern = contract.intern?.userId === req.user.id ||
-                     contract.internId === req.user.id ||
-                     (req.user.role === 'INTERN' && contract.intern?.user?.phone === req.user.phone);
+    const isArtisan = Boolean(contract.artisan && contract.artisan.userId === req.user.id);
+    const isIntern = Boolean(contract.intern && contract.intern.userId === req.user.id);
     const isAdmin = req.user.role === 'ADMIN';
 
     if (!isArtisan && !isIntern && !isAdmin) {
-      return res.status(403).json({ error: 'Unauthorized to download this partnership agreement' });
+      return res.status(403).json({ error: 'Unauthorized to download this partnership agreement', code: 'UNAUTHORIZED' });
     }
 
     const doc = new PDFDocument({ margin: 50, size: 'A4', bufferPages: true });

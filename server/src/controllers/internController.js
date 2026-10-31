@@ -11,7 +11,7 @@ const getAllInterns = async (req, res) => {
     const interns = await prisma.intern.findMany({
       where,
       include: {
-        user: { select: { name: true, phone: true, email: true } },
+        user: { select: { name: true } }, // STRICT: Never select phone or email
         ratings: { select: { score: true } },
         _count: {
           select: {
@@ -19,7 +19,7 @@ const getAllInterns = async (req, res) => {
             contracts: { where: { status: 'COMPLETED' } },
           },
         },
-      }
+      },
     });
 
     const formattedInterns = interns.map((intern) => {
@@ -31,7 +31,7 @@ const getAllInterns = async (req, res) => {
       return {
         id: intern.id,
         userId: intern.userId,
-        name: intern.user.name,
+        name: intern.user?.name || 'Growth Manager',
         college: intern.college,
         course: intern.course,
         skills: intern.skills,
@@ -49,7 +49,6 @@ const getAllInterns = async (req, res) => {
       };
     });
 
-    // Client-side skill filter if queried
     let filtered = formattedInterns;
     if (skill) {
       filtered = filtered.filter((i) =>
@@ -71,11 +70,16 @@ const getInternById = async (req, res) => {
     const intern = await prisma.intern.findUnique({
       where: { id },
       include: {
-        user: { select: { name: true, phone: true, email: true } },
+        user: { select: { name: true } }, // STRICT: Never select phone or email
         ratings: {
-          include: {
+          select: {
+            id: true,
+            score: true,
+            review: true,
+            createdAt: true,
             project: {
-              include: {
+              select: {
+                id: true,
                 artisan: { include: { user: { select: { name: true } } } },
               },
             },
@@ -83,7 +87,11 @@ const getInternById = async (req, res) => {
         },
         projects: {
           where: { status: 'COMPLETED' },
-          include: {
+          select: {
+            id: true,
+            status: true,
+            startDate: true,
+            completionDate: true,
             artisan: { include: { user: { select: { name: true } } } },
             request: { select: { title: true, category: true } },
           },
@@ -98,13 +106,31 @@ const getInternById = async (req, res) => {
         ? (intern.ratings.reduce((acc, r) => acc + r.score, 0) / intern.ratings.length).toFixed(1)
         : '5.0';
 
-    res.json({
-      ...intern,
-      name: intern.user.name,
+    // Explicit serialization to guarantee zero private user fields leak
+    const serializedIntern = {
+      id: intern.id,
+      userId: intern.userId,
+      name: intern.user?.name || 'Growth Manager',
+      college: intern.college,
+      course: intern.course,
+      skills: intern.skills,
+      experience: intern.experience,
+      portfolio: intern.portfolio,
+      location: intern.location,
+      profileImg: intern.profileImg,
+      tier: intern.tier,
+      hourlyRate: intern.hourlyRate,
+      projectRate: intern.projectRate,
+      isAvailable: intern.isAvailable,
+      bio: intern.bio,
       rating: avgRating,
       reviewsCount: intern.ratings.length,
       completedProjectsCount: intern.projects.length,
-    });
+      projects: intern.projects,
+      ratings: intern.ratings,
+    };
+
+    res.json(serializedIntern);
   } catch (error) {
     console.error('Get intern by ID error:', error);
     res.status(500).json({ error: 'Failed to fetch Growth Manager profile' });
@@ -127,12 +153,12 @@ const updateMyProfile = async (req, res) => {
     if (hourlyRate !== undefined) dataToUpdate.hourlyRate = parseFloat(hourlyRate) || null;
     if (projectRate !== undefined) dataToUpdate.projectRate = parseFloat(projectRate) || null;
     if (isAvailable !== undefined) dataToUpdate.isAvailable = Boolean(isAvailable);
-    if (bio !== undefined) dataToUpdate.bio = bio;
+    if (bio !== undefined) dataToUpdate.bio = String(bio).trim();
     if (skills) dataToUpdate.skills = Array.isArray(skills) ? skills : JSON.parse(skills);
-    if (college) dataToUpdate.college = college;
-    if (course) dataToUpdate.course = course;
-    if (portfolio) dataToUpdate.portfolio = portfolio;
-    if (location) dataToUpdate.location = location;
+    if (college) dataToUpdate.college = String(college).trim();
+    if (course) dataToUpdate.course = String(course).trim();
+    if (portfolio) dataToUpdate.portfolio = String(portfolio).trim();
+    if (location) dataToUpdate.location = String(location).trim();
 
     const updated = await prisma.intern.update({
       where: { id: intern.id },
