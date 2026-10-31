@@ -14,8 +14,7 @@ import {
   FileText,
   Clock,
   Sparkles,
-  Globe,
-  ArrowRight
+  Globe
 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -97,24 +96,24 @@ export default function ArtisanDashboard() {
 
   if (loading) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-20 text-center space-y-4">
-        <div className="w-10 h-10 border-3 border-[#0b634e] border-t-transparent rounded-full animate-spin mx-auto"></div>
-        <p className="text-slate-500 font-medium text-xs">Loading your business dashboard...</p>
+      <div className="max-w-7xl mx-auto px-4 py-16 text-center space-y-4">
+        <div className="w-12 h-12 border-4 border-amber-700 border-t-transparent rounded-full animate-spin mx-auto"></div>
+        <p className="text-gray-500 font-medium">Loading your business dashboard...</p>
       </div>
     );
   }
 
   if (error && !products.length && !contracts.length) {
     return (
-      <div className="max-w-md mx-auto px-4 py-16 text-center space-y-4 card p-8">
-        <div className="w-12 h-12 bg-rose-50 text-rose-700 rounded-2xl flex items-center justify-center font-bold text-xl mx-auto">
+      <div className="max-w-md mx-auto px-4 py-16 text-center space-y-4">
+        <div className="w-12 h-12 bg-red-100 text-red-700 rounded-2xl flex items-center justify-center font-bold text-xl mx-auto">
           !
         </div>
-        <h2 className="text-lg font-bold text-slate-900 font-display">Unable to load dashboard</h2>
-        <p className="text-xs text-slate-500">{error}</p>
+        <h2 className="text-xl font-bold text-gray-900">Unable to load dashboard</h2>
+        <p className="text-sm text-gray-500">{error}</p>
         <button
           onClick={fetchData}
-          className="btn-primary text-xs py-2 px-5 inline-flex"
+          className="px-6 py-2.5 bg-amber-700 text-white font-bold rounded-xl text-sm hover:bg-amber-800 transition-colors shadow-sm"
         >
           Retry
         </button>
@@ -125,140 +124,132 @@ export default function ArtisanDashboard() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
       {/* Dashboard Top Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 card p-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 font-display">
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900">
             {t('myShop')}
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-            Welcome back, {user?.name}. Here is how your artisan enterprise is growing on Bharat Bazaar.
+          <p className="text-xs sm:text-sm text-gray-500 mt-1">
+            Welcome back, {user?.name}. Here is how your business is growing on Bharat Bazaar.
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5 flex-wrap">
+        <div className="flex items-center gap-3 flex-wrap">
           <button
             onClick={toggleLanguage}
-            className="btn-secondary py-2 px-3 text-xs"
+            className="px-3 py-2.5 bg-gray-50 text-gray-700 border border-gray-200 font-bold rounded-xl text-xs hover:bg-gray-100 transition-colors flex items-center gap-1.5"
             title="Toggle Language"
           >
-            <Globe className="w-3.5 h-3.5 text-slate-500" />
+            <Globe className="w-4 h-4 text-gray-500" />
             {lang === 'en' ? 'हिंदी' : 'English'}
           </button>
           <Link
             to="/growth-managers"
-            className="btn-secondary py-2 px-3.5 text-xs text-[#06372b]"
+            className="px-4 py-2.5 bg-amber-50 text-amber-900 border border-amber-200 font-bold rounded-xl text-xs hover:bg-amber-100 transition-colors flex items-center gap-1.5"
           >
-            <UserCheck className="w-3.5 h-3.5 text-[#0b634e]" />
+            <UserCheck className="w-4 h-4 text-amber-800" />
             Hire Growth Manager
           </Link>
           <Link
             to="/dashboard/add-product"
-            className="btn-primary py-2 px-4 text-xs font-semibold shadow-sm"
+            className="px-4 py-2.5 bg-amber-700 text-white font-bold rounded-xl text-xs hover:bg-amber-800 transition-colors shadow-md flex items-center gap-1.5"
           >
-            <Plus className="w-3.5 h-3.5" />
+            <Plus className="w-4 h-4" />
             {t('addNewProduct')}
           </Link>
         </div>
       </div>
 
-      {/* Analytics Overview Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <div className="card p-5 space-y-2">
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Total Products</span>
+      {/* Analytics Overview Cards (UNDERSTAND & GROW) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm space-y-2">
+          <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Total Products</span>
           <div className="flex items-center justify-between">
-            <span className="text-3xl font-black text-slate-900 font-display">{analytics?.totalProducts || products.length}</span>
-            <div className="w-10 h-10 rounded-xl bg-[#e3f6f0] text-[#0b634e] flex items-center justify-center">
-              <Package className="w-5 h-5" />
-            </div>
+            <span className="text-3xl font-extrabold text-gray-900">{analytics?.totalProducts || products.length}</span>
+            <Package className="w-8 h-8 text-amber-700 bg-amber-50 p-1.5 rounded-xl" />
           </div>
-          <p className="text-[11px] text-slate-500">Live products in marketplace</p>
+          <p className="text-[11px] text-gray-500">Live products in marketplace</p>
         </div>
 
-        <div className="card p-5 space-y-2">
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Total Orders</span>
+        <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm space-y-2">
+          <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Total Orders</span>
           <div className="flex items-center justify-between">
-            <span className="text-3xl font-black text-slate-900 font-display">{analytics?.totalOrders || orders.length}</span>
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center">
-              <ShoppingBag className="w-5 h-5" />
-            </div>
+            <span className="text-3xl font-extrabold text-gray-900">{analytics?.totalOrders || orders.length}</span>
+            <ShoppingBag className="w-8 h-8 text-emerald-700 bg-emerald-50 p-1.5 rounded-xl" />
           </div>
-          <p className="text-[11px] text-slate-500">Customer orders received</p>
+          <p className="text-[11px] text-gray-500">Received customer orders</p>
         </div>
 
-        <div className="card p-5 space-y-2">
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Total Revenue</span>
+        <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm space-y-2">
+          <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Total Revenue</span>
           <div className="flex items-center justify-between">
-            <span className="text-3xl font-black text-slate-900 font-display">
+            <span className="text-3xl font-extrabold text-amber-900">
               ₹{(analytics?.totalRevenue || 0).toLocaleString('en-IN')}
             </span>
-            <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center">
-              <TrendingUp className="w-5 h-5" />
-            </div>
+            <TrendingUp className="w-8 h-8 text-amber-800 bg-amber-50 p-1.5 rounded-xl" />
           </div>
-          <p className="text-[11px] text-slate-500">Direct sales generated</p>
+          <p className="text-[11px] text-gray-500">Real sales from orders</p>
         </div>
 
-        <div className="card p-5 space-y-2">
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Growth Partner</span>
+        <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm space-y-2">
+          <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Growth Manager</span>
           <div className="flex items-center justify-between">
-            <span className="text-sm font-bold text-slate-900 truncate max-w-[140px] font-display">
-              {analytics?.activeContract?.growthManagerName || 'None assigned'}
+            <span className="text-sm font-bold text-gray-900 truncate">
+              {analytics?.activeContract?.growthManagerName || 'No active contract'}
             </span>
-            <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-700 flex items-center justify-center shrink-0">
-              <UserCheck className="w-5 h-5" />
-            </div>
+            <UserCheck className="w-8 h-8 text-indigo-700 bg-indigo-50 p-1.5 rounded-xl flex-shrink-0" />
           </div>
           {analytics?.activeContract ? (
-            <p className="text-[11px] text-emerald-700 font-semibold">
-              {analytics.activeContract.tasksCompleted}/{analytics.activeContract.tasksTotal} Deliverables Done
+            <p className="text-[11px] text-emerald-600 font-semibold">
+              {analytics.activeContract.tasksCompleted}/{analytics.activeContract.tasksTotal} Tasks Done
             </p>
           ) : (
-            <p className="text-[11px] text-slate-400">Hire a student partner</p>
+            <p className="text-[11px] text-gray-400">Hire a student growth partner</p>
           )}
         </div>
       </div>
 
       {/* Customer Orders Received */}
-      <div className="card p-6 space-y-4">
-        <div className="flex justify-between items-center border-b border-[#f0ebe1] pb-3">
-          <h2 className="text-base font-bold text-slate-900 flex items-center gap-2 font-display">
-            <ShoppingBag className="w-4 h-4 text-[#0b634e]" />
+      <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm space-y-4">
+        <div className="flex justify-between items-center border-b border-gray-100 pb-4">
+          <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+            <ShoppingBag className="w-5 h-5 text-amber-700" />
             Customer Orders Received ({orders.length})
           </h2>
         </div>
 
         {orders.length === 0 ? (
-          <div className="text-center py-10 text-slate-400 text-xs italic">
-            No customer orders received yet. Once customers purchase your creations, they will appear here.
+          <div className="text-center py-8 text-gray-400 text-xs italic">
+            No customer orders received yet. Once customers purchase your products, they will appear here.
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="border-b border-[#f0ebe1] bg-[#faf8f5] text-slate-500 font-bold uppercase tracking-wider">
-                  <th className="p-3.5 rounded-l-xl">Product</th>
+                <tr className="border-b bg-gray-50 text-gray-500 font-bold uppercase tracking-wider">
+                  <th className="p-3.5 rounded-tl-xl">Product</th>
                   <th className="p-3.5">Customer</th>
                   <th className="p-3.5">Price & Qty</th>
                   <th className="p-3.5">Order Date</th>
                   <th className="p-3.5">Status</th>
-                  <th className="p-3.5 rounded-r-xl text-right">Update Fulfillment</th>
+                  <th className="p-3.5 rounded-tr-xl text-right">Update Fulfillment</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#f0ebe1]">
+              <tbody className="divide-y divide-gray-50">
                 {orders.map((item) => (
-                  <tr key={item.id} className="hover:bg-[#faf8f5]/60 transition-colors">
-                    <td className="p-3.5 font-bold text-slate-900 font-display">{item.title}</td>
-                    <td className="p-3.5 text-slate-600 font-medium">
+                  <tr key={item.id} className="hover:bg-gray-50/80 transition-colors">
+                    <td className="p-3.5 font-bold text-gray-800">{item.title}</td>
+                    <td className="p-3.5 text-gray-600">
                       {item.order?.customerName || item.order?.customer?.name || 'Customer'}
                     </td>
-                    <td className="p-3.5 font-bold text-slate-900 font-display">
+                    <td className="p-3.5 font-bold text-amber-900">
                       ₹{item.price.toLocaleString('en-IN')} (x{item.quantity})
                     </td>
-                    <td className="p-3.5 text-slate-500">
+                    <td className="p-3.5 text-gray-500">
                       {new Date(item.order?.createdAt).toLocaleDateString('en-IN')}
                     </td>
                     <td className="p-3.5">
-                      <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-[#e3f6f0] text-[#06372b] border border-[#a7f3d0]">
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase bg-amber-50 text-amber-800 border border-amber-200">
                         {item.order?.status || 'PENDING'}
                       </span>
                     </td>
@@ -266,7 +257,7 @@ export default function ArtisanDashboard() {
                       <select
                         value={item.order?.status || 'PENDING'}
                         onChange={(e) => handleUpdateOrderStatus(item.orderId, e.target.value)}
-                        className="px-2.5 py-1 bg-white border border-[#ded6c9] rounded-lg text-xs font-semibold focus:ring-2 focus:ring-[#0b634e]/20 focus:border-[#0b634e]"
+                        className="px-2 py-1 bg-white border border-gray-200 rounded-lg text-xs font-semibold focus:ring-2 focus:ring-amber-700"
                       >
                         <option value="PENDING">PENDING</option>
                         <option value="PROCESSING">PROCESSING</option>
@@ -284,20 +275,20 @@ export default function ArtisanDashboard() {
       </div>
 
       {/* Active Growth Contracts */}
-      <div className="card p-6 space-y-4">
-        <div className="flex justify-between items-center border-b border-[#f0ebe1] pb-3">
-          <h2 className="text-base font-bold text-slate-900 flex items-center gap-2 font-display">
-            <FileText className="w-4 h-4 text-[#0b634e]" />
-            Growth Contracts & Manager Partnerships ({contracts.length})
+      <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm space-y-4">
+        <div className="flex justify-between items-center border-b border-gray-100 pb-4">
+          <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+            <FileText className="w-5 h-5 text-amber-700" />
+            Growth Contracts & Manager Agreements ({contracts.length})
           </h2>
-          <Link to="/growth-managers" className="text-xs text-[#0b634e] font-bold hover:underline">
-            Browse Directory &rarr;
+          <Link to="/growth-managers" className="text-xs text-amber-800 font-bold hover:underline">
+            Browse Growth Managers &rarr;
           </Link>
         </div>
 
         {contracts.length === 0 ? (
-          <div className="text-center py-10 text-slate-400 text-xs italic">
-            No active growth contracts yet. Click "Browse Directory" to partner with a student growth manager.
+          <div className="text-center py-8 text-gray-400 text-xs italic">
+            No active growth contracts yet. Click "Browse Growth Managers" to partner with a student manager.
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -306,33 +297,31 @@ export default function ArtisanDashboard() {
               return (
                 <div
                   key={contract.id}
-                  className="p-5 border border-[#ded6c9] rounded-2xl bg-[#faf8f5] hover:bg-white hover:shadow-md transition-all flex flex-col justify-between space-y-3"
+                  className="p-5 border border-gray-100 rounded-2xl bg-gray-50/50 hover:bg-white hover:shadow-md transition-all flex flex-col justify-between space-y-3"
                 >
-                  <div className="space-y-1.5">
+                  <div className="space-y-2">
                     <div className="flex justify-between items-start">
-                      <span className="text-sm font-bold text-slate-900 font-display">{contract.title}</span>
-                      <span className={`px-2.5 py-0.5 text-[10px] font-bold uppercase rounded-full border ${
-                        contract.status === 'ACTIVE' 
-                          ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
-                          : 'bg-amber-50 text-amber-800 border-amber-200'
+                      <span className="text-sm font-bold text-gray-900">{contract.title}</span>
+                      <span className={`px-2 py-0.5 text-[10px] font-extrabold rounded-full ${
+                        contract.status === 'ACTIVE' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-900'
                       }`}>
                         {contract.status}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-500">
-                      Growth Partner: <span className="font-semibold text-slate-800">{contract.intern?.user?.name}</span>
+                    <p className="text-xs text-gray-500">
+                      Growth Partner: <span className="font-semibold text-gray-700">{contract.intern?.user?.name}</span>
                     </p>
-                    <div className="flex justify-between text-[11px] text-slate-500 pt-1">
+                    <div className="flex justify-between text-[11px] text-gray-400 pt-1">
                       <span>Tier: {contract.tier}</span>
                       <span>{contract.tasks?.filter((t) => t.isCompleted).length || 0} Deliverables Done</span>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 pt-2 border-t border-[#ded6c9]/60">
+                  <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
                     {targetProjectId && (
                       <Link
                         to={`/projects/${targetProjectId}`}
-                        className="btn-primary flex-1 text-center py-2 px-3 text-xs font-semibold shadow-sm"
+                        className="flex-1 text-center py-2 px-3 bg-amber-700 text-white rounded-xl text-xs font-bold hover:bg-amber-800 transition-colors shadow-sm"
                       >
                         Open Workspace &rarr;
                       </Link>
@@ -340,7 +329,7 @@ export default function ArtisanDashboard() {
                     <Link
                       to={`/contracts/${contract.id}`}
                       state={{ projectId: targetProjectId }}
-                      className="btn-secondary py-2 px-3 text-xs font-semibold text-center"
+                      className="py-2 px-3 bg-white border border-gray-200 text-gray-700 rounded-xl text-xs font-semibold hover:bg-gray-50 transition-colors text-center"
                     >
                       Agreement
                     </Link>
@@ -353,30 +342,30 @@ export default function ArtisanDashboard() {
       </div>
 
       {/* Products Catalog Table */}
-      <div className="card p-6 space-y-4">
-        <div className="flex justify-between items-center border-b border-[#f0ebe1] pb-3">
-          <h2 className="text-base font-bold text-slate-900 flex items-center gap-2 font-display">
-            <Package className="w-4 h-4 text-[#0b634e]" />
+      <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm space-y-4">
+        <div className="flex justify-between items-center border-b border-gray-100 pb-4">
+          <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+            <Package className="w-5 h-5 text-amber-700" />
             Digital Catalog Products ({products.length})
           </h2>
           <Link
             to="/dashboard/add-product"
-            className="btn-primary py-1.5 px-3 text-xs font-semibold"
+            className="px-3 py-1.5 bg-amber-700 text-white rounded-xl text-xs font-bold hover:bg-amber-800"
           >
             + Add Product
           </Link>
         </div>
 
         {products.length === 0 ? (
-          <div className="text-center py-10 text-slate-400 text-xs italic">
+          <div className="text-center py-8 text-gray-400 text-xs italic">
             You haven't added any products to your digital catalog yet.
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
             {products.map((product) => (
-              <div key={product.id} className="border border-[#ded6c9] rounded-2xl p-4 bg-white space-y-3 flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow">
+              <div key={product.id} className="border border-gray-100 rounded-2xl p-4 bg-white space-y-3 flex flex-col justify-between">
                 <div className="space-y-2">
-                  <div className="w-full h-36 bg-[#f4efe6] rounded-xl overflow-hidden border border-[#ded6c9]">
+                  <div className="w-full h-36 bg-gray-50 rounded-xl overflow-hidden border border-gray-100">
                     {product.imageUrl ? (
                       <img
                         src={product.imageUrl.startsWith('http') ? product.imageUrl : `${import.meta.env.VITE_API_URL || 'http://localhost:5001'}/${product.imageUrl.replace(/\\/g, '/').replace(/^\//, '')}`}
@@ -384,28 +373,28 @@ export default function ArtisanDashboard() {
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-[#f4efe6] text-[#0b634e] text-xs font-bold font-display">
+                      <div className="w-full h-full flex items-center justify-center bg-amber-50 text-amber-900 text-xs font-bold">
                         {product.title}
                       </div>
                     )}
                   </div>
-                  <h3 className="font-bold text-slate-900 text-sm truncate font-display">{product.title}</h3>
+                  <h3 className="font-bold text-gray-900 text-sm truncate">{product.title}</h3>
                   <div className="flex justify-between text-xs">
-                    <span className="font-black text-slate-900 font-display">₹{product.price.toLocaleString('en-IN')}</span>
-                    <span className="text-slate-500 font-medium">Stock: {product.quantity}</span>
+                    <span className="font-extrabold text-amber-900">₹{product.price.toLocaleString('en-IN')}</span>
+                    <span className="text-gray-400">Qty: {product.quantity}</span>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between border-t border-[#f0ebe1] pt-3 text-xs">
+                <div className="flex items-center justify-between border-t border-gray-100 pt-3 text-xs">
                   <Link
                     to={`/dashboard/edit-product/${product.id}`}
-                    className="text-[#0b634e] font-bold flex items-center gap-1 hover:underline"
+                    className="text-amber-800 font-bold flex items-center gap-1 hover:underline"
                   >
                     <Edit className="w-3.5 h-3.5" /> Edit
                   </Link>
                   <button
                     onClick={() => handleDeleteProduct(product.id)}
-                    className="text-rose-600 font-medium flex items-center gap-1 hover:underline"
+                    className="text-red-500 font-medium flex items-center gap-1 hover:underline"
                   >
                     <Trash2 className="w-3.5 h-3.5" /> Delete
                   </button>
