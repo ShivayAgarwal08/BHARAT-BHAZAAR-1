@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "node src/index.js",
     "start": "node src/index.js",
-    "test": "node --test test/security.test.js",
+    "test": "node --test test/security.test.js test/aiFallback.test.js",
     "prisma-v": "prisma -v",
     "prisma-format": "prisma format",
     "prisma-generate": "prisma generate",

@@ -28,6 +28,7 @@ export default function AddProduct() {
   const [aiLoading, setAiLoading] = useState(false);
   const [language, setLanguage] = useState('hi-IN');
   const [aiError, setAiError] = useState('');
+  const [aiProvider, setAiProvider] = useState('');
   
   const recognitionRef = useRef(null);
 
@@ -103,6 +104,7 @@ export default function AddProduct() {
     if (!voiceText.trim() || aiLoading) return; // prevent double-submit
     setAiLoading(true);
     setAiError('');
+    setAiProvider('');
     const originalVoiceText = voiceText; // preserve for recovery on error
     try {
       const res = await axios.post(
@@ -117,17 +119,23 @@ export default function AddProduct() {
         quantity: res.data.quantity,
         category: res.data.category,
       });
+      if (res.data.provider) {
+        setAiProvider(res.data.provider);
+      }
       // Clear voice text so they can see the generated form clearly
       setVoiceText('');
     } catch (err) {
       // Restore voice text so the user does not lose their input
       setVoiceText(originalVoiceText);
+      setAiProvider('');
       if (err.code === 'ECONNABORTED' || err.code === 'ERR_CANCELED') {
         setAiError('The AI took too long to respond. Please try again, or enter the details manually below.');
       } else if (err.response?.data?.code === 'GENERATION_IN_PROGRESS') {
         setAiError('A listing is already being generated. Please wait for it to complete.');
       } else if (err.response?.data?.code === 'AI_DAILY_QUOTA_EXHAUSTED') {
         setAiError('AI listing generation has reached its daily usage quota. You can enter your product details manually below or try again later.');
+      } else if (err.response?.data?.code === 'AI_ALL_PROVIDERS_UNAVAILABLE') {
+        setAiError(err.response?.data?.error || 'AI listing generation is currently unavailable across all providers. You can enter your product details manually below or try again later.');
       } else if (err.response?.status === 429 || err.response?.data?.code === 'AI_RATE_LIMITED') {
         setAiError('AI service is busy right now. Please wait 30 seconds and try again.');
       } else {
@@ -137,6 +145,7 @@ export default function AddProduct() {
       setAiLoading(false);
     }
   };
+
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
@@ -237,13 +246,23 @@ export default function AddProduct() {
               className="btn-primary py-3 px-8 flex items-center gap-2 disabled:opacity-50"
             >
               {aiLoading ? (
-                <span className="flex items-center gap-2"><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Generating listing&hellip;</span>
+                <span className="flex items-center gap-2"><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Generating listing (with fallback)&hellip;</span>
               ) : (
                 <><Sparkles size={18} /> Let us create your listing</>
               )}
             </button>
           </div>
           
+          {aiProvider && (
+            <div className="mt-4 p-3 bg-emerald-50 rounded-lg border border-emerald-200 flex items-center justify-between text-emerald-800 text-xs font-semibold">
+              <span className="flex items-center gap-1.5">
+                <Sparkles size={14} className="text-emerald-600" />
+                Listing generated successfully via {aiProvider.toUpperCase()}
+              </span>
+              <span className="text-[10px] text-emerald-600 font-normal uppercase tracking-wider">Multi-Provider AI Active</span>
+            </div>
+          )}
+
           {aiError && (
             <div className="mt-4 p-4 bg-white rounded-lg border border-red-100 flex items-start gap-3 text-red-600">
               <AlertCircle size={20} className="shrink-0 mt-0.5" />
