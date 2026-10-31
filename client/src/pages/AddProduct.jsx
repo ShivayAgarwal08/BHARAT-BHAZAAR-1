@@ -126,6 +126,8 @@ export default function AddProduct() {
         setAiError('The AI took too long to respond. Please try again, or enter the details manually below.');
       } else if (err.response?.data?.code === 'GENERATION_IN_PROGRESS') {
         setAiError('A listing is already being generated. Please wait for it to complete.');
+      } else if (err.response?.data?.code === 'AI_DAILY_QUOTA_EXHAUSTED') {
+        setAiError('AI listing generation has reached its daily usage quota. You can enter your product details manually below or try again later.');
       } else if (err.response?.status === 429 || err.response?.data?.code === 'AI_RATE_LIMITED') {
         setAiError('AI service is busy right now. Please wait 30 seconds and try again.');
       } else {

@@ -185,10 +185,53 @@ Rules:
             ? parseInt(err.response.headers['retry-after'], 10) * 1000
             : null;
 
+          // Inspect error body to distinguish daily quota exhaustion from temporary rate limits
+          let isDailyQuotaExhausted = false;
+          let retryDelaySeconds = null;
+
+          try {
+            const rawMsg = err.message || '';
+            const jsonIdx = rawMsg.indexOf('{');
+            if (jsonIdx !== -1) {
+              const errJson = JSON.parse(rawMsg.substring(jsonIdx));
+              const retryInfo = errJson.error?.details?.find((d) =>
+                d['@type']?.includes('RetryInfo')
+              );
+              if (retryInfo?.retryDelay) {
+                retryDelaySeconds = parseInt(retryInfo.retryDelay, 10);
+              }
+              if (
+                errJson.error?.status === 'RESOURCE_EXHAUSTED' ||
+                rawMsg.includes('limit exceeded on Free Tier') ||
+                rawMsg.includes('per day limit exceeded') ||
+                (retryDelaySeconds && retryDelaySeconds > 60)
+              ) {
+                isDailyQuotaExhausted = true;
+              }
+            }
+          } catch (_) {
+            // Error message wasn't JSON-formatted; fallback to string checks
+            if (
+              err.message?.includes('RESOURCE_EXHAUSTED') ||
+              err.message?.includes('per day limit exceeded')
+            ) {
+              isDailyQuotaExhausted = true;
+            }
+          }
+
+          if (isDailyQuotaExhausted) {
+            console.warn(
+              `[AI] Upstream daily quota exhausted (status: 429). Retry delay: ${retryDelaySeconds ? retryDelaySeconds + 's' : 'extended'}. Aborting retries immediately.`
+            );
+            lastError.isDailyQuota = true;
+            break; // Stop immediately; do NOT retry long quota exhaustion
+          }
+
+          // Transient rate limits (429 without long delay) or server busy (503)
           if (RETRYABLE_STATUSES.has(status) && attempt < MAX_RETRIES - 1) {
             const delay = retryAfterMs ?? backoffMs(attempt + 1);
             console.warn(
-              `[AI] Attempt ${attempt + 1} failed with status ${status}. Retrying in ${Math.round(delay)}ms…`
+              `[AI] Transient error (status: ${status}). Retrying attempt ${attempt + 2} in ${Math.round(delay)}ms…`
             );
             await sleep(delay);
             continue;
@@ -197,7 +240,7 @@ Rules:
           // Non-retryable error (400, 401, 404, JSON parse error, etc.)
           console.error(`[AI] Non-retryable error on attempt ${attempt + 1}:`, {
             status,
-            message: err.message,
+            category: err.statusText || err.code || 'UPSTREAM_ERROR',
           });
           break;
         }
@@ -205,6 +248,7 @@ Rules:
 
       if (!structuredProduct) {
         const isTimeout = lastError?.isTimeout;
+        const isDailyQuota = lastError?.isDailyQuota;
         const status =
           lastError?.status ||
           lastError?.httpStatusCode ||
@@ -215,6 +259,13 @@ Rules:
             error:
               'The AI service took too long to respond. Please try again or enter the details manually.',
             code: 'AI_TIMEOUT',
+          });
+        }
+        if (isDailyQuota) {
+          return res.status(429).json({
+            error:
+              'AI product listing generation has reached its daily usage quota. You can enter the details manually below or try again later.',
+            code: 'AI_DAILY_QUOTA_EXHAUSTED',
           });
         }
         if (status === 429) {
